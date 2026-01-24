@@ -1,0 +1,2740 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نظام التحقق التلقائي المتقدم - طلبات الإيداع</title>
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    :root {
+      --primary: #6366f1;
+      --primary-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+      --secondary: #06b6d4;
+      --danger: #ef4444;
+      --danger-gradient: linear-gradient(135deg, #ef4444, #f97316);
+      --success: #10b981;
+      --success-gradient: linear-gradient(135deg, #10b981, #22c55e);
+      --warning: #f59e0b;
+      --warning-gradient: linear-gradient(135deg, #f59e0b, #fbbf24);
+      --info: #3b82f6;
+      --info-gradient: linear-gradient(135deg, #3b82f6, #60a5fa);
+      --fraud: #8b0000;
+      --fraud-gradient: linear-gradient(135deg, #8b0000, #b91c1c);
+      --dark: #1f2937;
+      --light: #f9fafb;
+      --gray: #6b7280;
+      --border: rgba(107, 114, 128, 0.1);
+      --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+
+    body {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      color: var(--dark);
+      min-height: 100vh;
+      font-size: 14px;
+      direction: rtl;
+    }
+
+    /* شاشة التحميل */
+    .loading {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(5px);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(99, 102, 241, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--primary);
+      animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+      margin-top: 20px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--primary);
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* التوست */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--dark);
+      color: white;
+      padding: 15px 25px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--card-shadow-hover);
+      display: none;
+      align-items: center;
+      gap: 12px;
+      z-index: 1001;
+      animation: toastSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-size: 14px;
+      max-width: 400px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    @keyframes toastSlideIn {
+      from {
+        opacity: 0;
+        transform: translateX(100px) scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+      }
+    }
+
+    .toast.success {
+      background: var(--success-gradient);
+    }
+
+    .toast.error {
+      background: var(--danger-gradient);
+    }
+
+    .toast.warning {
+      background: var(--warning-gradient);
+    }
+
+    .toast.fraud {
+      background: var(--fraud-gradient);
+    }
+
+    /* الحاوية الرئيسية */
+    .main-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* الرأس */
+    .header {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 20px 30px;
+      border-radius: var(--radius-lg);
+      margin-bottom: 25px;
+      box-shadow: var(--card-shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-stats {
+      display: flex;
+      gap: 20px;
+    }
+
+    .stat-item {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 10px 20px;
+      border-radius: var(--radius-md);
+      text-align: center;
+      backdrop-filter: blur(10px);
+      min-width: 120px;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    /* أقسام النظام */
+    .sections-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 25px;
+      margin-bottom: 25px;
+    }
+
+    .section {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 25px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--light);
+    }
+
+    /* الأزرار */
+    .buttons-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      padding: 12px 20px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .btn.primary {
+      background: var(--primary-gradient);
+      color: white;
+    }
+
+    .btn.success {
+      background: var(--success-gradient);
+      color: white;
+    }
+
+    .btn.warning {
+      background: var(--warning-gradient);
+      color: white;
+    }
+
+    .btn.info {
+      background: var(--info-gradient);
+      color: white;
+    }
+
+    .btn.danger {
+      background: var(--danger-gradient);
+      color: white;
+    }
+
+    .btn.fraud {
+      background: var(--fraud-gradient);
+      color: white;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--card-shadow-hover);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    /* النماذج */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--dark);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      transition: all 0.3s;
+      background: var(--light);
+      color: var(--dark);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .form-textarea {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      resize: vertical;
+      min-height: 100px;
+      transition: all 0.3s;
+      font-family: inherit;
+      background: var(--light);
+    }
+
+    .form-textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+
+    .form-select {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      background: var(--light);
+      color: var(--dark);
+      cursor: pointer;
+    }
+
+    .form-select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    }
+
+    /* قسم إضافة قاعدة ثابت */
+    .add-rule-section {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 25px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 25px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .add-rule-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .add-rule-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .add-rule-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 15px;
+    }
+
+    /* أزرار اختيار العملة */
+    .currency-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .currency-btn {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--light);
+      color: var(--dark);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+
+    .currency-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--primary);
+    }
+
+    .currency-btn.active {
+      background: var(--primary-gradient);
+      color: white;
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    /* قائمة القواعد */
+    .rules-list {
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+
+    .rule-card {
+      background: white;
+      border-radius: var(--radius-md);
+      padding: 15px;
+      margin-bottom: 10px;
+      box-shadow: var(--card-shadow);
+      border-left: 4px solid var(--primary);
+      transition: all 0.3s;
+    }
+
+    .rule-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--card-shadow-hover);
+    }
+
+    .rule-card.active {
+      border-left-color: var(--success);
+    }
+
+    .rule-card.inactive {
+      border-left-color: var(--gray);
+      opacity: 0.7;
+    }
+
+    .rule-card.duplicate {
+      border-left-color: var(--warning);
+      background: linear-gradient(90deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%);
+    }
+
+    .rule-card.fraud {
+      border-left-color: var(--fraud);
+      background: linear-gradient(90deg, rgba(139, 0, 0, 0.05) 0%, transparent 100%);
+    }
+
+    .rule-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .rule-amount {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .rule-status {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .rule-status.active {
+      background: var(--success-gradient);
+      color: white;
+    }
+
+    .rule-status.inactive {
+      background: var(--gray);
+      color: white;
+    }
+
+    .rule-status.duplicate {
+      background: var(--warning-gradient);
+      color: white;
+    }
+
+    .rule-status.fraud {
+      background: var(--fraud-gradient);
+      color: white;
+    }
+
+    .rule-details {
+      font-size: 13px;
+      color: var(--gray);
+      margin-bottom: 8px;
+    }
+
+    .rule-details div {
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .rule-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .rule-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.3s;
+    }
+
+    .rule-btn.toggle {
+      background: var(--primary-gradient);
+      color: white;
+    }
+
+    .rule-btn.delete {
+      background: var(--danger-gradient);
+      color: white;
+    }
+
+    .rule-btn.duplicate {
+      background: var(--warning-gradient);
+      color: white;
+    }
+
+    .rule-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    /* حالة عدم وجود قواعد */
+    .no-rules {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--gray);
+    }
+
+    .no-rules-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+      opacity: 0.3;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .no-rules-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--dark);
+    }
+
+    .no-rules-text {
+      font-size: 14px;
+      max-width: 300px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* قسم التحذيرات والاحتيال */
+    .fraud-section {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 25px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 25px;
+      border-left: 4px solid var(--fraud);
+    }
+
+    .fraud-alerts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .fraud-alert {
+      background: linear-gradient(135deg, rgba(139, 0, 0, 0.05) 0%, rgba(185, 28, 28, 0.05) 100%);
+      border: 1px solid rgba(185, 28, 28, 0.2);
+      border-radius: var(--radius-md);
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .fraud-alert-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .fraud-alert-title {
+      font-weight: bold;
+      color: var(--fraud);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .fraud-alert-count {
+      background: var(--fraud);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .fraud-alert-details {
+      font-size: 13px;
+      color: var(--gray);
+      line-height: 1.5;
+    }
+
+    /* نافذة منبثقة */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      padding: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 800px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: var(--card-shadow-hover);
+      animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .modal-header {
+      background: var(--primary-gradient);
+      color: white;
+      padding: 20px;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .modal-header.fraud {
+      background: var(--fraud-gradient);
+    }
+
+    .modal-header h2 {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-close {
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: all 0.3s;
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-close:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(90deg);
+    }
+
+    .modal-body {
+      padding: 25px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 25px;
+    }
+
+    .modal-btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .modal-btn.approve {
+      background: var(--success-gradient);
+      color: white;
+      box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+
+    .modal-btn.cancel {
+      background: var(--light);
+      color: var(--dark);
+      box-shadow: var(--card-shadow);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+
+    .modal-btn.fraud {
+      background: var(--fraud-gradient);
+      color: white;
+      box-shadow: 0 4px 15px rgba(139, 0, 0, 0.4);
+    }
+
+    .modal-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-btn:active {
+      transform: translateY(0);
+    }
+
+    /* جدول السجلات المكررة */
+    .records-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      font-size: 13px;
+    }
+
+    .records-table th {
+      background: var(--light);
+      padding: 12px;
+      text-align: right;
+      font-weight: 600;
+      color: var(--dark);
+      border-bottom: 2px solid var(--border);
+    }
+
+    .records-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .records-table tr:hover {
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .record-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+      display: inline-block;
+    }
+
+    .record-badge.duplicate {
+      background: var(--warning-gradient);
+      color: white;
+    }
+
+    .record-badge.fraud {
+      background: var(--fraud-gradient);
+      color: white;
+    }
+
+    .record-badge.approved {
+      background: var(--success-gradient);
+      color: white;
+    }
+
+    .record-badge.rejected {
+      background: var(--danger-gradient);
+      color: white;
+    }
+
+    /* إشعارات النظام */
+    .system-notifications {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      z-index: 1002;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 400px;
+      margin-left: auto;
+    }
+
+    .notification {
+      background: white;
+      border-radius: var(--radius-md);
+      padding: 15px;
+      box-shadow: var(--card-shadow-hover);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slideIn 0.3s ease;
+      border-left: 4px solid var(--primary);
+    }
+
+    .notification.fraud {
+      border-left-color: var(--fraud);
+    }
+
+    .notification.warning {
+      border-left-color: var(--warning);
+    }
+
+    .notification.success {
+      border-left-color: var(--success);
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(100px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    /* التجاوب للجوال */
+    @media (max-width: 768px) {
+      .main-container {
+        padding: 15px;
+      }
+      
+      .header {
+        padding: 15px;
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+      
+      .header-stats {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      
+      .stat-item {
+        flex: 1;
+        min-width: 120px;
+      }
+      
+      .sections-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .section {
+        padding: 20px;
+      }
+      
+      .add-rule-section {
+        padding: 20px;
+      }
+      
+      .add-rule-form {
+        grid-template-columns: 1fr;
+      }
+      
+      .buttons-container {
+        justify-content: center;
+      }
+      
+      .modal-content {
+        margin: 15px;
+      }
+      
+      .modal-actions {
+        flex-direction: column;
+      }
+      
+      .fraud-alerts {
+        grid-template-columns: 1fr;
+      }
+      
+      .records-table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stat-value {
+        font-size: 16px;
+      }
+      
+      .stat-label {
+        font-size: 10px;
+      }
+      
+      .section {
+        padding: 15px;
+      }
+      
+      .add-rule-section {
+        padding: 15px;
+      }
+      
+      .btn {
+        padding: 10px 15px;
+        font-size: 13px;
+      }
+      
+      .currency-btn {
+        padding: 10px;
+        font-size: 13px;
+      }
+      
+      .modal-body {
+        padding: 20px;
+      }
+      
+      .fraud-alert {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- شاشة التحميل -->
+  <div id="loading" class="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">جاري التحميل...</div>
+  </div>
+
+  <!-- التوست -->
+  <div id="toast" class="toast">
+    <i class="fas fa-check-circle" id="toastIcon"></i>
+    <span id="toastMessage">تمت العملية بنجاح</span>
+  </div>
+
+  <!-- إشعارات النظام -->
+  <div class="system-notifications" id="systemNotifications"></div>
+
+  <!-- الحاوية الرئيسية -->
+  <div class="main-container">
+    <!-- الرأس -->
+    <header class="header">
+      <div>
+        <h1>
+          <i class="fas fa-shield-alt"></i>
+          نظام التحقق التلقائي المتقدم
+        </h1>
+        <p style="margin-top: 5px; opacity: 0.9; font-size: 14px;">
+          نظام متكامل لمنع تكرار المعاملات واكتشاف الاحتيال
+        </p>
+      </div>
+      
+      <div class="header-stats">
+        <div class="stat-item">
+          <div class="stat-value" id="activeRulesCount">0</div>
+          <div class="stat-label">قواعد نشطة</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="autoVerifiedCount">0</div>
+          <div class="stat-label">طلبات تم التحقق</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="pendingDepositsCount">0</div>
+          <div class="stat-label">طلبات قيد الانتظار</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="duplicateCount">0</div>
+          <div class="stat-label">مكرر تم رفضه</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- قسم إضافة قاعدة تحقق جديدة (ثابت) -->
+    <div class="add-rule-section">
+      <div class="add-rule-header">
+        <div class="add-rule-title">
+          <i class="fas fa-plus-circle"></i>
+          إضافة قاعدة تحقق جديدة
+        </div>
+      </div>
+      
+      <div class="add-rule-form">
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-money-bill-wave"></i>
+            المبلغ المحدد
+          </label>
+          <input type="number" id="ruleAmountMain" class="form-input" placeholder="أدخل المبلغ المحدد للتحقق" step="0.01" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-hashtag"></i>
+            رقم العملية
+          </label>
+          <input type="text" id="ruleTransactionNumberMain" class="form-input" placeholder="أدخل رقم العملية المحدد" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-coins"></i>
+            نوع العملة
+          </label>
+          <div class="currency-buttons">
+            <button type="button" class="currency-btn active" data-currency="DZD">
+              <i class="fas fa-dollar-sign"></i>
+              DZD
+            </button>
+            <button type="button" class="currency-btn" data-currency="USDT">
+              <i class="fas fa-coins"></i>
+              USDT
+            </button>
+          </div>
+        </div>
+        
+        <div class="form-group" style="align-self: flex-end;">
+          <button id="saveRuleMainBtn" class="btn success" style="width: 100%; padding: 14px;">
+            <i class="fas fa-save"></i>
+            حفظ القاعدة
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- قسم اكتشاف الاحتيال -->
+    <div class="fraud-section">
+      <h2 class="section-title">
+        <i class="fas fa-user-secret"></i>
+        نظام اكتشاف الاحتيال والتكرار
+      </h2>
+      
+      <div class="fraud-alerts">
+        <div class="fraud-alert">
+          <div class="fraud-alert-header">
+            <div class="fraud-alert-title">
+              <i class="fas fa-times-circle"></i>
+              عمليات مكررة تم رفضها
+            </div>
+            <div class="fraud-alert-count" id="duplicateRejectedCount">0</div>
+          </div>
+          <div class="fraud-alert-details">
+            تم رفض العمليات المكررة بنفس المبلغ ورقم العملية تلقائياً
+          </div>
+        </div>
+        
+        <div class="fraud-alert">
+          <div class="fraud-alert-header">
+            <div class="fraud-alert-title">
+              <i class="fas fa-exclamation-triangle"></i>
+              قواعد مكررة تم اكتشافها
+            </div>
+            <div class="fraud-alert-count" id="duplicateRulesCount">0</div>
+          </div>
+          <div class="fraud-alert-details">
+            تم اكتشاف قواعد تحقق مكررة ومنع حفظها في النظام
+          </div>
+        </div>
+        
+        <div class="fraud-alert">
+          <div class="fraud-alert-header">
+            <div class="fraud-alert-title">
+              <i class="fas fa-shield-alt"></i>
+              حماية من التكرار
+            </div>
+            <div class="fraud-alert-count" id="duplicatePreventionCount">0</div>
+          </div>
+          <div class="fraud-alert-details">
+            عدد المرات التي تم فيها منع تكرار العمليات
+          </div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px;">
+        <button id="viewDuplicateRecordsBtn" class="btn fraud" style="width: 100%;">
+          <i class="fas fa-history"></i>
+          عرض سجلات العمليات المكررة
+        </button>
+      </div>
+    </div>
+
+    <!-- الأقسام الرئيسية -->
+    <div class="sections-container">
+      <!-- قسم التحكم -->
+      <div class="section">
+        <h2 class="section-title">
+          <i class="fas fa-cogs"></i>
+          التحكم بالنظام
+        </h2>
+        
+        <div class="buttons-container">
+          <button id="runVerificationBtn" class="btn success">
+            <i class="fas fa-play-circle"></i>
+            تشغيل التحقق الآن
+          </button>
+          <button id="refreshStatsBtn" class="btn info">
+            <i class="fas fa-sync-alt"></i>
+            تحديث الإحصائيات
+          </button>
+          <button id="toggleAutoModeBtn" class="btn warning">
+            <i class="fas fa-power-off"></i>
+            <span id="autoModeText">تفعيل التشغيل التلقائي</span>
+          </button>
+          <button id="clearDuplicateRecordsBtn" class="btn danger">
+            <i class="fas fa-trash-alt"></i>
+            مسح السجلات المكررة
+          </button>
+        </div>
+        
+        <div style="font-size: 12px; color: var(--gray); margin-bottom: 20px; display: flex; align-items: center; gap: 5px;">
+          <i class="fas fa-info-circle"></i>
+          النظام يرفض تلقائياً أي عملية مكررة بنفس المبلغ ورقم العملية
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-history"></i>
+            آخر عملية تحقق
+          </label>
+          <div id="lastVerificationInfo" style="padding: 12px; background: var(--light); border-radius: var(--radius-md); font-size: 13px;">
+            <i class="fas fa-clock"></i>
+            <span id="lastVerificationTime">لم يتم إجراء أي عملية تحقق بعد</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">
+            <i class="fas fa-user-shield"></i>
+            مستوى الحماية
+          </label>
+          <div style="padding: 12px; background: var(--light); border-radius: var(--radius-md); font-size: 13px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span>منع التكرار:</span>
+              <span style="color: var(--success); font-weight: bold;">مفعل</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+              <span>اكتشاف الاحتيال:</span>
+              <span style="color: var(--success); font-weight: bold;">مفعل</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- قسم الإحصائيات -->
+      <div class="section">
+        <h2 class="section-title">
+          <i class="fas fa-chart-bar"></i>
+          إحصائيات النظام
+        </h2>
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
+          <div style="background: var(--light); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: var(--success);" id="totalRulesCount">0</div>
+            <div style="font-size: 12px; color: var(--gray);">إجمالي القواعد</div>
+          </div>
+          <div style="background: var(--light); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: var(--primary);" id="totalMatchesCount">0</div>
+            <div style="font-size: 12px; color: var(--gray);">إجمالي التطابقات</div>
+          </div>
+          <div style="background: var(--light); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: var(--warning);" id="uniqueTransactionsCount">0</div>
+            <div style="font-size: 12px; color: var(--gray);">عمليات فريدة</div>
+          </div>
+          <div style="background: var(--light); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: var(--fraud);" id="fraudAttemptsCount">0</div>
+            <div style="font-size: 12px; color: var(--gray);">محاولات احتيال</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- قسم قواعد التحقق -->
+    <div class="section">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 class="section-title" style="margin-bottom: 0;">
+          <i class="fas fa-list"></i>
+          قواعد التحقق التلقائي
+        </h2>
+        <div style="display: flex; gap: 10px;">
+          <div class="btn info" id="searchRulesBtn">
+            <i class="fas fa-search"></i>
+            بحث
+          </div>
+          <div class="btn" id="filterActiveBtn" style="background: var(--light); color: var(--dark);">
+            <i class="fas fa-filter"></i>
+            <span id="filterText">النشطة فقط</span>
+          </div>
+          <div class="btn warning" id="scanDuplicateRulesBtn">
+            <i class="fas fa-search-plus"></i>
+            فحص التكرار
+          </div>
+        </div>
+      </div>
+      
+      <div class="rules-list" id="rulesList">
+        <!-- سيتم ملؤها ديناميكياً -->
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة نتائج التحقق -->
+  <div id="resultsModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header" style="background: var(--info-gradient);">
+        <h2>
+          <i class="fas fa-check-circle"></i>
+          نتائج عملية التحقق
+        </h2>
+        <button class="modal-close close-modal">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div id="verificationResults">
+          <!-- سيتم ملؤها ديناميكياً -->
+        </div>
+        
+        <div class="modal-actions">
+          <button class="modal-btn cancel close-modal">
+            <i class="fas fa-times"></i>
+            إغلاق
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة السجلات المكررة -->
+  <div id="duplicateRecordsModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header fraud">
+        <h2>
+          <i class="fas fa-history"></i>
+          سجلات العمليات المكررة
+        </h2>
+        <button class="modal-close close-modal">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div style="margin-bottom: 20px;">
+          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button class="btn info" id="filterAllDuplicates">
+              <i class="fas fa-list"></i>
+              الكل
+            </button>
+            <button class="btn warning" id="filterDuplicatesOnly">
+              <i class="fas fa-copy"></i>
+              مكرر فقط
+            </button>
+            <button class="btn fraud" id="filterFraudOnly">
+              <i class="fas fa-user-secret"></i>
+              احتيال
+            </button>
+          </div>
+        </div>
+        
+        <div id="duplicateRecordsList">
+          <table class="records-table">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>المبلغ</th>
+                <th>رقم العملية</th>
+                <th>الحالة</th>
+                <th>التفاصيل</th>
+              </tr>
+            </thead>
+            <tbody id="duplicateRecordsTable">
+              <!-- سيتم ملؤها ديناميكياً -->
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="modal-actions">
+          <button class="modal-btn cancel close-modal">
+            <i class="fas fa-times"></i>
+            إغلاق
+          </button>
+          <button class="modal-btn fraud" id="exportDuplicateRecordsBtn">
+            <i class="fas fa-download"></i>
+            تصدير البيانات
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== تهيئة Firebase ==========
+    const firebaseConfig = {
+      apiKey: "AIzaSyBX8v0qIVjG-Z46fVDeEUDKcPxa_FQF9Qc",
+      authDomain: "bnak-belaiba.firebaseapp.com",
+      projectId: "bnak-belaiba",
+      storageBucket: "bnak-belaiba.firebasestorage.app",
+      messagingSenderId: "286736432059",
+      appId: "1:286736432059:web:ec1ed4292850f00008229e"
+    };
+
+    let db;
+    let firebaseApp;
+    let autoMode = false;
+    let autoVerificationListener = null;
+    let rulesListener = null;
+    let showOnlyActive = true;
+    let selectedCurrency = "DZD";
+    let processedTransactions = new Set(); // لتتبع العمليات المعالجة
+    let duplicateRules = new Set(); // لتتبع القواعد المكررة
+
+    try {
+      firebaseApp = firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore(firebaseApp);
+      console.log('✅ Firebase initialized successfully');
+    } catch (error) {
+      console.error('❌ Firebase initialization error:', error);
+      showToast('❌ خطأ في الاتصال بقاعدة البيانات', 'error');
+    }
+
+    // ========== دوال المساعدة ==========
+    function showLoading() {
+      document.getElementById('loading').style.display = 'flex';
+    }
+
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastIcon = document.getElementById('toastIcon');
+      const toastMessage = document.getElementById('toastMessage');
+      
+      toast.className = `toast ${type}`;
+      toastMessage.textContent = message;
+      
+      switch(type) {
+        case 'success':
+          toastIcon.className = 'fas fa-check-circle';
+          break;
+        case 'error':
+          toastIcon.className = 'fas fa-exclamation-circle';
+          break;
+        case 'warning':
+          toastIcon.className = 'fas fa-exclamation-triangle';
+          break;
+        case 'fraud':
+          toastIcon.className = 'fas fa-user-secret';
+          break;
+      }
+      
+      toast.style.display = 'flex';
+      
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    function showNotification(message, type = 'info') {
+      const notificationsContainer = document.getElementById('systemNotifications');
+      const notificationId = 'notification-' + Date.now();
+      
+      const notification = document.createElement('div');
+      notification.className = `notification ${type}`;
+      notification.id = notificationId;
+      notification.innerHTML = `
+        <i class="fas fa-${type === 'fraud' ? 'user-secret' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        <span>${message}</span>
+        <button onclick="document.getElementById('${notificationId}').remove()" style="margin-right: auto; background: none; border: none; color: var(--gray); cursor: pointer;">
+          <i class="fas fa-times"></i>
+        </button>
+      `;
+      
+      notificationsContainer.appendChild(notification);
+      
+      setTimeout(() => {
+        if (document.getElementById(notificationId)) {
+          notification.style.opacity = '0';
+          notification.style.transform = 'translateX(100px)';
+          setTimeout(() => {
+            if (document.getElementById(notificationId)) {
+              notification.remove();
+            }
+          }, 300);
+        }
+      }, 5000);
+    }
+
+    function formatNumberFrench(number) {
+      if (isNaN(number)) return '0';
+      return parseFloat(number).toLocaleString('fr-FR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function formatCurrency(amount, currency) {
+      const symbol = currency === 'USDT' ? 'USDT' : 'DZD';
+      return `${formatNumberFrench(amount)} ${symbol}`;
+    }
+
+    function formatDate(date) {
+      if (!date) return '-';
+      
+      const d = date.toDate ? date.toDate() : new Date(date);
+      return d.toLocaleString('ar-EG', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+
+    function formatTimeAgo(date) {
+      if (!date) return 'قبل لحظات';
+      
+      const d = date.toDate ? date.toDate() : new Date(date);
+      const now = new Date();
+      const diffMs = now - d;
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHour = Math.floor(diffMin / 60);
+      
+      if (diffSec < 60) return 'قبل لحظات';
+      if (diffMin < 60) return `قبل ${diffMin} دقيقة`;
+      if (diffHour < 24) return `قبل ${diffHour} ساعة`;
+      return formatDate(date);
+    }
+
+    // توليد توقيع فريد للعملية
+    function generateTransactionSignature(amount, transactionNumber, currency, userId = '') {
+      const normalizedAmount = parseFloat(amount).toFixed(2);
+      const normalizedTransaction = transactionNumber.trim().toUpperCase();
+      const normalizedCurrency = currency.toUpperCase();
+      
+      // إنشاء توقيع فريد باستخدام hash بسيط
+      const signatureString = `${normalizedAmount}_${normalizedTransaction}_${normalizedCurrency}_${userId}`;
+      
+      // استخدام دالة hash بسيطة لتوليد توقيع فريد
+      let hash = 0;
+      for (let i = 0; i < signatureString.length; i++) {
+        const char = signatureString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+      }
+      
+      return Math.abs(hash).toString(16);
+    }
+
+    // ========== نظام التحقق التلقائي المحسن ==========
+    
+    // دالة تحميل الإحصائيات
+    async function loadStatistics() {
+      try {
+        showLoading();
+        
+        // حساب عدد القواعد النشطة
+        const activeRulesSnapshot = await db.collection('auto_verification_rules')
+          .where('status', '==', 'active')
+          .get();
+        
+        document.getElementById('activeRulesCount').textContent = activeRulesSnapshot.size;
+        
+        // حساب إجمالي القواعد
+        const totalRulesSnapshot = await db.collection('auto_verification_rules').get();
+        document.getElementById('totalRulesCount').textContent = totalRulesSnapshot.size;
+        
+        // حساب عدد الطلبات التي تم التحقق منها تلقائياً
+        const verifiedDepositsSnapshot = await db.collection('deposit_requests')
+          .where('autoVerified', '==', true)
+          .get();
+        
+        document.getElementById('autoVerifiedCount').textContent = verifiedDepositsSnapshot.size;
+        
+        // حساب عدد الطلبات المعلقة
+        const pendingDepositsSnapshot = await db.collection('deposit_requests')
+          .where('status', '==', 'pending')
+          .get();
+        
+        document.getElementById('pendingDepositsCount').textContent = pendingDepositsSnapshot.size;
+        
+        // حساب إجمالي التطابقات
+        let totalMatches = 0;
+        totalRulesSnapshot.forEach(doc => {
+          const ruleData = doc.data();
+          totalMatches += (ruleData.matchCount || 0);
+        });
+        document.getElementById('totalMatchesCount').textContent = totalMatches;
+        
+        // حساب العمليات الفريدة
+        const allDepositsSnapshot = await db.collection('deposit_requests')
+          .where('status', '==', 'approved')
+          .get();
+        
+        const uniqueTransactions = new Set();
+        allDepositsSnapshot.forEach(doc => {
+          const data = doc.data();
+          const signature = generateTransactionSignature(
+            data.amount, 
+            data.transactionNumber, 
+            data.currency || 'DZD',
+            data.userId || ''
+          );
+          uniqueTransactions.add(signature);
+        });
+        
+        document.getElementById('uniqueTransactionsCount').textContent = uniqueTransactions.size;
+        
+        // حساب المحاولات المكررة
+        const duplicateRecordsSnapshot = await db.collection('duplicate_records')
+          .where('type', 'in', ['duplicate', 'fraud'])
+          .get();
+        
+        document.getElementById('duplicateCount').textContent = duplicateRecordsSnapshot.size;
+        document.getElementById('duplicateRejectedCount').textContent = duplicateRecordsSnapshot.size;
+        
+        // تحديث وقت آخر تحقق
+        const lastVerification = localStorage.getItem('lastAutoVerification');
+        if (lastVerification) {
+          document.getElementById('lastVerificationTime').textContent = 
+            `آخر عملية تحقق ${formatTimeAgo(lastVerification)}`;
+        }
+        
+        // تحديث إحصائيات منع التكرار
+        const preventionCount = parseInt(localStorage.getItem('duplicatePreventionCount') || '0');
+        document.getElementById('duplicatePreventionCount').textContent = preventionCount;
+        
+        // تحديث عدد القواعد المكررة المكتشفة
+        const duplicateRulesCount = parseInt(localStorage.getItem('duplicateRulesCount') || '0');
+        document.getElementById('duplicateRulesCount').textContent = duplicateRulesCount;
+        
+        // تحديث عدد محاولات الاحتيال
+        const fraudAttemptsSnapshot = await db.collection('duplicate_records')
+          .where('type', '==', 'fraud')
+          .get();
+        
+        document.getElementById('fraudAttemptsCount').textContent = fraudAttemptsSnapshot.size;
+        
+        // تحميل حالة التشغيل التلقائي
+        const autoModeStatus = localStorage.getItem('autoVerificationMode');
+        autoMode = autoModeStatus === 'true';
+        updateAutoModeButton();
+        
+        hideLoading();
+        
+      } catch (error) {
+        console.error('❌ خطأ في تحميل الإحصائيات:', error);
+        showToast('❌ خطأ في تحميل الإحصائيات', 'error');
+        hideLoading();
+      }
+    }
+
+    // دالة تسجيل عملية مكررة
+    async function logDuplicateTransaction(depositData, depositId, reason = 'duplicate') {
+      try {
+        const transactionSignature = generateTransactionSignature(
+          depositData.amount,
+          depositData.transactionNumber,
+          depositData.currency || 'DZD',
+          depositData.userId || ''
+        );
+        
+        const duplicateRecord = {
+          depositId: depositId,
+          transactionSignature: transactionSignature,
+          amount: depositData.amount,
+          currency: depositData.currency || 'DZD',
+          transactionNumber: depositData.transactionNumber,
+          userId: depositData.userId || '',
+          type: reason,
+          reason: reason === 'duplicate' ? 'عملية مكررة بنفس المبلغ ورقم العملية' : 'اشتباه احتيال',
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          status: 'rejected',
+          originalDepositId: await findOriginalTransaction(transactionSignature)
+        };
+        
+        await db.collection('duplicate_records').add(duplicateRecord);
+        
+        // تحديث العداد المحلي
+        const currentCount = parseInt(localStorage.getItem('duplicatePreventionCount') || '0');
+        localStorage.setItem('duplicatePreventionCount', (currentCount + 1).toString());
+        
+        // إرسال إشعار بالنظام
+        showNotification(
+          `تم رفض عملية مكررة: ${formatCurrency(depositData.amount, depositData.currency || 'DZD')} - ${depositData.transactionNumber}`,
+          reason === 'fraud' ? 'fraud' : 'warning'
+        );
+        
+        return true;
+      } catch (error) {
+        console.error('❌ خطأ في تسجيل العملية المكررة:', error);
+        return false;
+      }
+    }
+
+    // دالة البحث عن العملية الأصلية
+    async function findOriginalTransaction(signature) {
+      try {
+        const depositsSnapshot = await db.collection('deposit_requests')
+          .where('status', '==', 'approved')
+          .get();
+        
+        for (const doc of depositsSnapshot.docs) {
+          const data = doc.data();
+          const dataSignature = generateTransactionSignature(
+            data.amount,
+            data.transactionNumber,
+            data.currency || 'DZD',
+            data.userId || ''
+          );
+          
+          if (dataSignature === signature) {
+            return doc.id;
+          }
+        }
+        
+        return null;
+      } catch (error) {
+        console.error('❌ خطأ في البحث عن العملية الأصلية:', error);
+        return null;
+      }
+    }
+
+    // التحقق من تكرار العملية
+    async function checkForDuplicateTransaction(depositData, depositId) {
+      try {
+        const transactionSignature = generateTransactionSignature(
+          depositData.amount,
+          depositData.transactionNumber,
+          depositData.currency || 'DZD',
+          depositData.userId || ''
+        );
+        
+        // التحقق من السجلات المكررة
+        const duplicateSnapshot = await db.collection('duplicate_records')
+          .where('transactionSignature', '==', transactionSignature)
+          .get();
+        
+        if (!duplicateSnapshot.empty) {
+          // العملية مكررة
+          await logDuplicateTransaction(depositData, depositId, 'duplicate');
+          return true;
+        }
+        
+        // التحقق من المعاملات المعتمدة مسبقاً
+        const approvedDepositsSnapshot = await db.collection('deposit_requests')
+          .where('status', '==', 'approved')
+          .get();
+        
+        for (const doc of approvedDepositsSnapshot.docs) {
+          const approvedData = doc.data();
+          const approvedSignature = generateTransactionSignature(
+            approvedData.amount,
+            approvedData.transactionNumber,
+            approvedData.currency || 'DZD',
+            approvedData.userId || ''
+          );
+          
+          if (approvedSignature === transactionSignature && doc.id !== depositId) {
+            // العملية مكررة ومعتمدة سابقاً
+            await logDuplicateTransaction(depositData, depositId, 'fraud');
+            return true;
+          }
+        }
+        
+        return false;
+      } catch (error) {
+        console.error('❌ خطأ في التحقق من التكرار:', error);
+        return false;
+      }
+    }
+
+    // التحقق من تكرار القاعدة
+    async function checkForDuplicateRule(ruleData) {
+      try {
+        const rulesSnapshot = await db.collection('auto_verification_rules').get();
+        
+        for (const doc of rulesSnapshot.docs) {
+          const existingRule = doc.data();
+          
+          // مقارنة القواعد بناءً على المبلغ ورقم العملية والعملة
+          if (
+            parseFloat(existingRule.amount) === parseFloat(ruleData.amount) &&
+            existingRule.transactionNumber === ruleData.transactionNumber &&
+            existingRule.currency === ruleData.currency
+          ) {
+            // تحديث العداد المحلي للقواعد المكررة
+            const currentCount = parseInt(localStorage.getItem('duplicateRulesCount') || '0');
+            localStorage.setItem('duplicateRulesCount', (currentCount + 1).toString());
+            
+            return {
+              isDuplicate: true,
+              ruleId: doc.id,
+              existingRule: existingRule
+            };
+          }
+        }
+        
+        return { isDuplicate: false };
+      } catch (error) {
+        console.error('❌ خطأ في التحقق من تكرار القاعدة:', error);
+        return { isDuplicate: false };
+      }
+    }
+
+    // دالة تشغيل التحقق التلقائي
+    async function runAutoVerification() {
+      try {
+        showLoading();
+        
+        const startTime = new Date().getTime();
+        
+        // جلب جميع القواعد النشطة
+        const rulesSnapshot = await db.collection('auto_verification_rules')
+          .where('status', '==', 'active')
+          .get();
+        
+        if (rulesSnapshot.empty) {
+          showToast('⚠️ لا توجد قواعد تحقق نشطة', 'warning');
+          hideLoading();
+          return;
+        }
+        
+        // جلب جميع طلبات الإيداع المعلقة
+        const pendingDepositsSnapshot = await db.collection('deposit_requests')
+          .where('status', '==', 'pending')
+          .get();
+        
+        if (pendingDepositsSnapshot.empty) {
+          showToast('⚠️ لا توجد طلبات إيداع قيد الانتظار', 'warning');
+          hideLoading();
+          return;
+        }
+        
+        let verifiedCount = 0;
+        let duplicateCount = 0;
+        let fraudCount = 0;
+        let processedCount = 0;
+        const results = [];
+        
+        // تطبيق القواعد على كل طلب
+        for (const depositDoc of pendingDepositsSnapshot.docs) {
+          const depositData = depositDoc.data();
+          const depositId = depositDoc.id;
+          
+          processedCount++;
+          
+          // التحقق من التكرار قبل المعالجة
+          const isDuplicate = await checkForDuplicateTransaction(depositData, depositId);
+          
+          if (isDuplicate) {
+            duplicateCount++;
+            
+            // رفض الطلب المكرر
+            await db.collection('deposit_requests').doc(depositId).update({
+              status: 'rejected',
+              rejectionReason: 'عملية مكررة',
+              rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+              autoRejected: true
+            });
+            
+            continue;
+          }
+          
+          let matched = false;
+          
+          for (const ruleDoc of rulesSnapshot.docs) {
+            const ruleData = ruleDoc.data();
+            const ruleId = ruleDoc.id;
+            
+            // التحقق من التطابق
+            if (checkDepositMatchesRule(depositData, ruleData)) {
+              matched = true;
+              
+              // تأكيد الطلب تلقائياً
+              const success = await approveDepositRequest(depositId, depositData, ruleId);
+              if (success) {
+                verifiedCount++;
+                results.push({
+                  type: 'approved',
+                  requestId: depositId,
+                  amount: depositData.amount,
+                  currency: depositData.currency,
+                  transactionNumber: depositData.transactionNumber,
+                  ruleId: ruleId
+                });
+              }
+              
+              // تحديث سجل التطابق في القاعدة
+              await db.collection('auto_verification_rules').doc(ruleId).update({
+                lastMatch: firebase.firestore.FieldValue.serverTimestamp(),
+                matchCount: (ruleData.matchCount || 0) + 1
+              });
+              
+              break;
+            }
+          }
+          
+          if (!matched) {
+            // إذا لم تتطابق مع أي قاعدة، تبقى معلقة للمراجعة اليدوية
+            results.push({
+              type: 'pending',
+              requestId: depositId,
+              amount: depositData.amount,
+              currency: depositData.currency,
+              transactionNumber: depositData.transactionNumber
+            });
+          }
+        }
+        
+        // حساب وقت المعالجة
+        const endTime = new Date().getTime();
+        const processingTime = (endTime - startTime) / 1000;
+        
+        // تحديث وقت آخر تحقق
+        localStorage.setItem('lastAutoVerification', new Date().toISOString());
+        
+        // عرض النتائج
+        showVerificationResults({
+          totalProcessed: processedCount,
+          verified: verifiedCount,
+          duplicates: duplicateCount,
+          fraud: fraudCount,
+          pending: processedCount - verifiedCount - duplicateCount,
+          processingTime: processingTime.toFixed(2),
+          results: results
+        });
+        
+        // تحديث الإحصائيات العامة
+        loadStatistics();
+        
+        showToast(
+          `✅ تم التحقق من ${processedCount} طلب: ${verifiedCount} تم تأكيدها، ${duplicateCount} مكررة تم رفضها`,
+          duplicateCount > 0 ? 'warning' : 'success'
+        );
+        
+      } catch (error) {
+        console.error('❌ خطأ في تشغيل التحقق التلقائي:', error);
+        showToast('❌ خطأ في تشغيل التحقق التلقائي', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // دالة التحقق من تطابق الطلب مع قاعدة
+    function checkDepositMatchesRule(depositData, ruleData) {
+      // التحقق من العملة
+      const depositCurrency = depositData.currency || 'DZD';
+      const ruleCurrency = ruleData.currency || 'DZD';
+      
+      if (depositCurrency !== ruleCurrency) {
+        return false;
+      }
+      
+      // التحقق من المبلغ
+      const depositAmount = parseFloat(depositData.amount);
+      const ruleAmount = parseFloat(ruleData.amount);
+      
+      if (depositAmount !== ruleAmount) {
+        return false;
+      }
+      
+      // التحقق من رقم العملية
+      const depositTransaction = depositData.transactionNumber || '';
+      const ruleTransaction = ruleData.transactionNumber || '';
+      
+      if (ruleTransaction.includes('*')) {
+        // بحث جزئي باستخدام *
+        const pattern = ruleTransaction.replace(/\*/g, '.*');
+        const regex = new RegExp(`^${pattern}$`);
+        if (!regex.test(depositTransaction)) {
+          return false;
+        }
+      } else if (depositTransaction !== ruleTransaction) {
+        return false;
+      }
+      
+      // جميع الشروط متطابقة
+      return true;
+    }
+
+    // دالة تأكيد طلب الإيداع
+    async function approveDepositRequest(requestId, requestData, ruleId) {
+      try {
+        // التحقق من التكرار مرة أخرى قبل التأكيد
+        const isDuplicate = await checkForDuplicateTransaction(requestData, requestId);
+        if (isDuplicate) {
+          console.log(`⛔ تم رفض الطلب ${requestId} لأنه مكرر`);
+          return false;
+        }
+        
+        const requestRef = db.collection('deposit_requests').doc(requestId);
+        
+        const updateData = {
+          status: 'approved',
+          autoVerified: true,
+          autoVerifiedByRule: ruleId,
+          autoVerifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          processedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        // تحديث رصيد المستخدم
+        const userRef = db.collection('users').doc(requestData.userId.toString());
+        const userDoc = await userRef.get();
+        
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          const currency = requestData.currency || 'DZD';
+          const currentBalance = userData.balances?.[currency] || 0;
+          const newBalance = currentBalance + requestData.amount;
+          
+          await userRef.update({
+            [`balances.${currency}`]: newBalance
+          });
+          
+          // إنشاء معاملة إيداع
+          const transactionRef = db.collection('transactions').doc();
+          await transactionRef.set({
+            id: transactionRef.id,
+            userId: requestData.userId,
+            type: 'deposit',
+            amount: requestData.amount,
+            currency: currency,
+            status: 'completed',
+            description: `إيداع ${requestData.transferType || 'تحويل'} (تحقق تلقائي)`,
+            referenceId: requestData.transactionNumber,
+            depositRequestId: requestId,
+            autoVerified: true,
+            autoVerifiedByRule: ruleId,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            transactionSignature: generateTransactionSignature(
+              requestData.amount,
+              requestData.transactionNumber,
+              currency,
+              requestData.userId
+            )
+          });
+        }
+        
+        await requestRef.update(updateData);
+        
+        // تسجيل التوقيع لمنع التكرار في المستقبل
+        const transactionSignature = generateTransactionSignature(
+          requestData.amount,
+          requestData.transactionNumber,
+          requestData.currency || 'DZD',
+          requestData.userId
+        );
+        
+        await db.collection('processed_transactions').doc(transactionSignature).set({
+          depositId: requestId,
+          amount: requestData.amount,
+          transactionNumber: requestData.transactionNumber,
+          currency: requestData.currency || 'DZD',
+          userId: requestData.userId,
+          approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          ruleId: ruleId
+        });
+        
+        return true;
+      } catch (error) {
+        console.error('❌ خطأ في تأكيد طلب الإيداع:', error);
+        return false;
+      }
+    }
+
+    // ========== إدارة القواعد المحسنة ==========
+    
+    // دالة إضافة قاعدة جديدة مع التحقق من التكرار
+    async function addAutoVerificationRule(ruleData) {
+      try {
+        showLoading();
+        
+        // التحقق من التكرار
+        const duplicateCheck = await checkForDuplicateRule(ruleData);
+        
+        if (duplicateCheck.isDuplicate) {
+          showToast('⚠️ هذه القاعدة موجودة مسبقاً ولا يمكن إضافتها مرة أخرى', 'warning');
+          
+          // إظهار إشعار بالنظام
+          showNotification(
+            `تم اكتشاف قاعدة مكررة: ${formatCurrency(ruleData.amount, ruleData.currency)} - ${ruleData.transactionNumber}`,
+            'warning'
+          );
+          
+          // إظهار القاعدة المكررة
+          if (duplicateCheck.existingRule) {
+            showToast(`القاعدة المكررة موجودة في القاعدة ID: ${duplicateCheck.ruleId}`, 'warning');
+          }
+          
+          hideLoading();
+          return null;
+        }
+        
+        const ruleRef = await db.collection('auto_verification_rules').add({
+          ...ruleData,
+          currency: selectedCurrency,
+          status: 'active',
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: 'system',
+          lastMatch: null,
+          matchCount: 0,
+          autoConfirm: true,
+          ruleSignature: generateTransactionSignature(
+            ruleData.amount,
+            ruleData.transactionNumber,
+            selectedCurrency,
+            'rule'
+          )
+        });
+        
+        showToast('✅ تم إضافة قاعدة التحقق بنجاح', 'success');
+        
+        // مسح حقول النموذج
+        document.getElementById('ruleAmountMain').value = '';
+        document.getElementById('ruleTransactionNumberMain').value = '';
+        
+        // تحديث الإحصائيات
+        loadStatistics();
+        
+        return ruleRef.id;
+      } catch (error) {
+        console.error('❌ خطأ في إضافة قاعدة التحقق:', error);
+        showToast('❌ خطأ في إضافة قاعدة التحقق', 'error');
+        return null;
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // دالة فحص القواعد المكررة
+    async function scanForDuplicateRules() {
+      try {
+        showLoading();
+        
+        const rulesSnapshot = await db.collection('auto_verification_rules').get();
+        const rulesMap = new Map();
+        const duplicates = [];
+        
+        rulesSnapshot.forEach(doc => {
+          const ruleData = doc.data();
+          const ruleKey = `${ruleData.amount}_${ruleData.transactionNumber}_${ruleData.currency}`;
+          
+          if (rulesMap.has(ruleKey)) {
+            duplicates.push({
+              ruleId: doc.id,
+              ruleData: ruleData,
+              duplicateOf: rulesMap.get(ruleKey)
+            });
+          } else {
+            rulesMap.set(ruleKey, doc.id);
+          }
+        });
+        
+        if (duplicates.length > 0) {
+          showToast(`⚠️ تم اكتشاف ${duplicates.length} قاعدة مكررة`, 'warning');
+          
+          // تحديث العداد المحلي
+          const currentCount = parseInt(localStorage.getItem('duplicateRulesCount') || '0');
+          localStorage.setItem('duplicateRulesCount', (currentCount + duplicates.length).toString());
+          
+          // إظهار القواعد المكررة
+          let duplicateHTML = `<div style="margin-bottom: 20px;">
+            <div style="font-weight: bold; color: var(--warning); margin-bottom: 10px;">
+              <i class="fas fa-exclamation-triangle"></i>
+              تم اكتشاف ${duplicates.length} قاعدة مكررة
+            </div>`;
+          
+          duplicates.forEach(duplicate => {
+            duplicateHTML += `
+              <div style="background: rgba(245, 158, 11, 0.1); padding: 10px; border-radius: var(--radius-sm); margin-bottom: 10px; border-right: 3px solid var(--warning);">
+                <div style="font-weight: bold;">${formatCurrency(duplicate.ruleData.amount, duplicate.ruleData.currency)} - ${duplicate.ruleData.transactionNumber}</div>
+                <div style="font-size: 12px; color: var(--gray);">
+                  القاعدة ID: ${duplicate.ruleId}<br>
+                  مكررة من القاعدة: ${duplicate.duplicateOf}
+                </div>
+              </div>
+            `;
+          });
+          
+          duplicateHTML += `</div>`;
+          
+          const resultsContainer = document.getElementById('verificationResults');
+          resultsContainer.innerHTML = duplicateHTML;
+          openModal('resultsModal');
+        } else {
+          showToast('✅ لم يتم اكتشاف أي قواعد مكررة', 'success');
+        }
+        
+      } catch (error) {
+        console.error('❌ خطأ في فحص القواعد المكررة:', error);
+        showToast('❌ خطأ في فحص القواعد المكررة', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // ========== عرض السجلات المكررة ==========
+    
+    async function loadDuplicateRecords(filter = 'all') {
+      try {
+        showLoading();
+        
+        let query = db.collection('duplicate_records').orderBy('timestamp', 'desc');
+        
+        if (filter === 'duplicate') {
+          query = query.where('type', '==', 'duplicate');
+        } else if (filter === 'fraud') {
+          query = query.where('type', '==', 'fraud');
+        }
+        
+        const snapshot = await query.limit(100).get();
+        const tableBody = document.getElementById('duplicateRecordsTable');
+        tableBody.innerHTML = '';
+        
+        if (snapshot.empty) {
+          tableBody.innerHTML = `
+            <tr>
+              <td colspan="5" style="text-align: center; padding: 30px; color: var(--gray);">
+                <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 10px; opacity: 0.3;"></i>
+                <div style="font-weight: bold;">لا توجد سجلات مكررة</div>
+              </td>
+            </tr>
+          `;
+          hideLoading();
+          return;
+        }
+        
+        snapshot.forEach(doc => {
+          const record = doc.data();
+          const row = document.createElement('tr');
+          
+          let badgeClass = 'record-badge ';
+          if (record.type === 'fraud') {
+            badgeClass += 'fraud';
+          } else if (record.type === 'duplicate') {
+            badgeClass += 'duplicate';
+          } else {
+            badgeClass += 'rejected';
+          }
+          
+          row.innerHTML = `
+            <td>${formatDate(record.timestamp)}</td>
+            <td style="font-weight: bold;">${formatCurrency(record.amount, record.currency)}</td>
+            <td style="font-family: monospace;">${record.transactionNumber}</td>
+            <td><span class="${badgeClass}">${record.type === 'fraud' ? 'احتيال' : 'مكرر'}</span></td>
+            <td>${record.reason || '-'}</td>
+          `;
+          
+          tableBody.appendChild(row);
+        });
+        
+        hideLoading();
+      } catch (error) {
+        console.error('❌ خطأ في تحميل السجلات المكررة:', error);
+        showToast('❌ خطأ في تحميل السجلات المكررة', 'error');
+        hideLoading();
+      }
+    }
+
+    // ========== باقي الوظائف ==========
+    
+    // تحديث زر التشغيل التلقائي
+    function updateAutoModeButton() {
+      const button = document.getElementById('toggleAutoModeBtn');
+      const text = document.getElementById('autoModeText');
+      
+      if (autoMode) {
+        button.style.background = 'var(--success-gradient)';
+        text.textContent = 'التشغيل التلقائي مفعل';
+        startAutoVerificationListener();
+      } else {
+        button.style.background = 'var(--warning-gradient)';
+        text.textContent = 'تفعيل التشغيل التلقائي';
+        stopAutoVerificationListener();
+      }
+    }
+
+    // تبديل حالة التشغيل التلقائي
+    function toggleAutoMode() {
+      autoMode = !autoMode;
+      localStorage.setItem('autoVerificationMode', autoMode);
+      updateAutoModeButton();
+      
+      showToast(
+        autoMode ? '✅ تم تفعيل التشغيل التلقائي' : '⚠️ تم إيقاف التشغيل التلقائي',
+        autoMode ? 'success' : 'warning'
+      );
+    }
+
+    // تحميل القواعد
+    function loadRules() {
+      if (rulesListener) {
+        rulesListener();
+      }
+      
+      let query = db.collection('auto_verification_rules');
+      
+      if (showOnlyActive) {
+        query = query.where('status', '==', 'active');
+      }
+      
+      rulesListener = query
+        .orderBy('createdAt', 'desc')
+        .onSnapshot((snapshot) => {
+          const rulesList = document.getElementById('rulesList');
+          rulesList.innerHTML = '';
+          
+          if (snapshot.empty) {
+            rulesList.innerHTML = `
+              <div class="no-rules">
+                <div class="no-rules-icon">
+                  <i class="fas fa-robot"></i>
+                </div>
+                <div class="no-rules-title">لا توجد قواعد تحقق</div>
+                <div class="no-rules-text">
+                  ${showOnlyActive ? 'لا توجد قواعد نشطة' : 'قم بإضافة أول قاعدة للتحقق التلقائي'}
+                </div>
+              </div>
+            `;
+            return;
+          }
+          
+          snapshot.forEach((doc) => {
+            const ruleData = doc.data();
+            const ruleId = doc.id;
+            
+            const ruleCard = document.createElement('div');
+            ruleCard.className = `rule-card ${ruleData.status}`;
+            
+            ruleCard.innerHTML = `
+              <div class="rule-header">
+                <div class="rule-amount">${formatCurrency(ruleData.amount, ruleData.currency || 'DZD')}</div>
+                <div class="rule-status ${ruleData.status}">
+                  ${ruleData.status === 'active' ? 'نشط' : 'غير نشط'}
+                </div>
+              </div>
+              
+              <div class="rule-details">
+                <div>
+                  <i class="fas fa-hashtag"></i>
+                  <span style="font-family: monospace;">${ruleData.transactionNumber}</span>
+                </div>
+                <div>
+                  <i class="fas fa-coins"></i>
+                  العملة: ${ruleData.currency || 'DZD'}
+                </div>
+                <div>
+                  <i class="fas fa-play-circle"></i>
+                  الإجراء: تأكيد تلقائي
+                </div>
+                ${ruleData.matchCount ? `
+                  <div>
+                    <i class="fas fa-check-circle"></i>
+                    تم التطابق ${ruleData.matchCount} مرة
+                  </div>
+                ` : ''}
+                ${ruleData.lastMatch ? `
+                  <div>
+                    <i class="fas fa-clock"></i>
+                    آخر تطابق: ${formatTimeAgo(ruleData.lastMatch)}
+                  </div>
+                ` : ''}
+              </div>
+              
+              <div class="rule-actions">
+                <button class="rule-btn toggle" data-id="${ruleId}" data-status="${ruleData.status}">
+                  <i class="fas fa-toggle-${ruleData.status === 'active' ? 'on' : 'off'}"></i>
+                  ${ruleData.status === 'active' ? 'تعطيل' : 'تفعيل'}
+                </button>
+                <button class="rule-btn delete" data-id="${ruleId}">
+                  <i class="fas fa-trash"></i>
+                  حذف
+                </button>
+              </div>
+            `;
+            
+            rulesList.appendChild(ruleCard);
+          });
+        }, (error) => {
+          console.error('❌ خطأ في تحميل القواعد:', error);
+          showToast('❌ خطأ في تحميل القواعد', 'error');
+        });
+    }
+
+    // تعديل حالة القاعدة
+    async function toggleRuleStatus(ruleId, currentStatus) {
+      try {
+        showLoading();
+        
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        
+        await db.collection('auto_verification_rules').doc(ruleId).update({
+          status: newStatus,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        showToast(`✅ تم ${newStatus === 'active' ? 'تفعيل' : 'تعطيل'} القاعدة بنجاح`, 'success');
+        
+      } catch (error) {
+        console.error('❌ خطأ في تعديل حالة القاعدة:', error);
+        showToast('❌ خطأ في تعديل القاعدة', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // حذف قاعدة
+    async function deleteRule(ruleId) {
+      if (!confirm('هل أنت متأكد من حذف هذه القاعدة؟')) {
+        return;
+      }
+      
+      try {
+        showLoading();
+        
+        await db.collection('auto_verification_rules').doc(ruleId).delete();
+        
+        showToast('✅ تم حذف القاعدة بنجاح', 'success');
+        
+      } catch (error) {
+        console.error('❌ خطأ في حذف القاعدة:', error);
+        showToast('❌ خطأ في حذف القاعدة', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // تبديل عرض القواعد
+    function toggleRulesFilter() {
+      showOnlyActive = !showOnlyActive;
+      document.getElementById('filterText').textContent = showOnlyActive ? 'النشطة فقط' : 'جميع القواعد';
+      loadRules();
+    }
+
+    // عرض نتائج التحقق
+    function showVerificationResults(results) {
+      const resultsContainer = document.getElementById('verificationResults');
+      
+      let resultsHTML = `
+        <div style="text-align: center; margin-bottom: 20px;">
+          <div style="font-size: 48px; color: var(--success); margin-bottom: 10px;">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div style="font-size: 18px; font-weight: bold; color: var(--dark); margin-bottom: 5px;">
+            تم الانتهاء من عملية التحقق
+          </div>
+          <div style="color: var(--gray); font-size: 14px;">
+            وقت المعالجة: ${results.processingTime} ثانية
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px;">
+          <div style="background: var(--light); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: var(--primary);">${results.totalProcessed}</div>
+            <div style="font-size: 12px; color: var(--gray);">إجمالي الطلبات</div>
+          </div>
+          <div style="background: var(--light); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: var(--success);">${results.verified}</div>
+            <div style="font-size: 12px; color: var(--gray);">تم تأكيدها</div>
+          </div>
+          <div style="background: var(--light); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: var(--warning);">${results.duplicates}</div>
+            <div style="font-size: 12px; color: var(--gray);">مكررة تم رفضها</div>
+          </div>
+          <div style="background: var(--light); padding: 15px; border-radius: var(--radius-md); text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: var(--fraud);">${results.fraud}</div>
+            <div style="font-size: 12px; color: var(--gray);">اشتباه احتيال</div>
+          </div>
+        </div>
+      `;
+      
+      if (results.results.length > 0) {
+        resultsHTML += `
+          <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--dark);">
+            <i class="fas fa-list"></i>
+            تفاصيل النتائج
+          </div>
+          <div style="max-height: 200px; overflow-y: auto; background: var(--light); border-radius: var(--radius-md); padding: 10px;">
+        `;
+        
+        results.results.forEach((result, index) => {
+          let icon = 'fas fa-clock';
+          let color = 'var(--warning)';
+          let status = 'قيد الانتظار';
+          
+          if (result.type === 'approved') {
+            icon = 'fas fa-check-circle';
+            color = 'var(--success)';
+            status = 'تم التأكيد';
+          } else if (result.type === 'duplicate') {
+            icon = 'fas fa-times-circle';
+            color = 'var(--danger)';
+            status = 'مكرر مرفوض';
+          }
+          
+          resultsHTML += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="color: ${color};">
+                  <i class="${icon}"></i>
+                </div>
+                <div>
+                  <div style="font-weight: bold; font-size: 13px;">${formatCurrency(result.amount, result.currency)}</div>
+                  <div style="font-size: 11px; color: var(--gray);">${result.transactionNumber}</div>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                <div style="font-size: 11px; font-weight: bold; color: ${color};">${status}</div>
+                <div style="font-size: 10px; color: var(--gray);">
+                  ${result.requestId.substring(0, 8)}...
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        resultsHTML += `</div>`;
+      }
+      
+      resultsContainer.innerHTML = resultsHTML;
+      openModal('resultsModal');
+    }
+
+    // مسح السجلات المكررة
+    async function clearDuplicateRecords() {
+      if (!confirm('هل أنت متأكد من مسح جميع سجلات العمليات المكررة؟ هذا الإجراء لا يمكن التراجع عنه.')) {
+        return;
+      }
+      
+      try {
+        showLoading();
+        
+        const snapshot = await db.collection('duplicate_records').get();
+        const batch = db.batch();
+        
+        snapshot.docs.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+        
+        await batch.commit();
+        
+        // إعادة تعيين العدادات المحلية
+        localStorage.setItem('duplicatePreventionCount', '0');
+        localStorage.setItem('duplicateRulesCount', '0');
+        
+        showToast('✅ تم مسح جميع السجلات المكررة', 'success');
+        loadStatistics();
+        
+      } catch (error) {
+        console.error('❌ خطأ في مسح السجلات المكررة:', error);
+        showToast('❌ خطأ في مسح السجلات المكررة', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // ========== الاستماع التلقائي المحسن ==========
+    
+    function startAutoVerificationListener() {
+      if (autoVerificationListener) {
+        autoVerificationListener();
+      }
+      
+      autoVerificationListener = db.collection('deposit_requests')
+        .where('status', '==', 'pending')
+        .onSnapshot(async (snapshot) => {
+          snapshot.docChanges().forEach(async (change) => {
+            if (change.type === 'added') {
+              const depositData = change.doc.data();
+              const depositId = change.doc.id;
+              
+              // التحقق من التكرار أولاً
+              const isDuplicate = await checkForDuplicateTransaction(depositData, depositId);
+              
+              if (isDuplicate) {
+                // رفض الطلب المكرر
+                await db.collection('deposit_requests').doc(depositId).update({
+                  status: 'rejected',
+                  rejectionReason: 'عملية مكررة',
+                  rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                  autoRejected: true
+                });
+                return;
+              }
+              
+              // جلب القواعد النشطة
+              const rulesSnapshot = await db.collection('auto_verification_rules')
+                .where('status', '==', 'active')
+                .get();
+              
+              // التحقق من التطابق مع كل قاعدة
+              for (const ruleDoc of rulesSnapshot.docs) {
+                const ruleData = ruleDoc.data();
+                
+                if (checkDepositMatchesRule(depositData, ruleData)) {
+                  // تأكيد الطلب تلقائياً
+                  await approveDepositRequest(depositId, depositData, ruleDoc.id);
+                  
+                  // تحديث سجل التطابق
+                  await db.collection('auto_verification_rules').doc(ruleDoc.id).update({
+                    lastMatch: firebase.firestore.FieldValue.serverTimestamp(),
+                    matchCount: (ruleData.matchCount || 0) + 1
+                  });
+                  
+                  console.log(`✅ تم تأكيد طلب ${depositId} تلقائياً باستخدام القاعدة ${ruleDoc.id}`);
+                  
+                  // تحديث الإحصائيات
+                  loadStatistics();
+                  
+                  // الخروج بعد أول تطابق
+                  break;
+                }
+              }
+            }
+          });
+        }, (error) => {
+          console.error('❌ خطأ في الاستماع التلقائي:', error);
+        });
+    }
+
+    function stopAutoVerificationListener() {
+      if (autoVerificationListener) {
+        autoVerificationListener();
+        autoVerificationListener = null;
+      }
+    }
+
+    // ========== إدارة النوافذ المنبثقة ==========
+    
+    function openModal(modalId) {
+      document.getElementById(modalId).style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).style.display = 'none';
+    }
+
+    function closeAllModals() {
+      document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.style.display = 'none';
+      });
+    }
+
+    // ========== تهيئة الأحداث ==========
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('🚀 تهيئة نظام التحقق التلقائي المتقدم...');
+      
+      // تحميل الإحصائيات والقواعد
+      loadStatistics();
+      loadRules();
+      
+      // أحداث الأزرار الرئيسية
+      document.getElementById('runVerificationBtn').addEventListener('click', runAutoVerification);
+      document.getElementById('refreshStatsBtn').addEventListener('click', loadStatistics);
+      document.getElementById('toggleAutoModeBtn').addEventListener('click', toggleAutoMode);
+      document.getElementById('clearDuplicateRecordsBtn').addEventListener('click', clearDuplicateRecords);
+      document.getElementById('scanDuplicateRulesBtn').addEventListener('click', scanForDuplicateRules);
+      document.getElementById('viewDuplicateRecordsBtn').addEventListener('click', function() {
+        loadDuplicateRecords('all');
+        openModal('duplicateRecordsModal');
+      });
+      
+      // أحداث تصفية السجلات المكررة
+      document.getElementById('filterAllDuplicates').addEventListener('click', () => loadDuplicateRecords('all'));
+      document.getElementById('filterDuplicatesOnly').addEventListener('click', () => loadDuplicateRecords('duplicate'));
+      document.getElementById('filterFraudOnly').addEventListener('click', () => loadDuplicateRecords('fraud'));
+      
+      // أحداث أزرار اختيار العملة
+      document.querySelectorAll('.currency-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.currency-btn').forEach(b => {
+            b.classList.remove('active');
+          });
+          this.classList.add('active');
+          selectedCurrency = this.getAttribute('data-currency');
+          console.log(`✅ العملة المختارة: ${selectedCurrency}`);
+        });
+      });
+      
+      // أحداث تصفية القواعد
+      document.getElementById('filterActiveBtn').addEventListener('click', toggleRulesFilter);
+      
+      // حدث إضافة قاعدة جديدة
+      document.getElementById('saveRuleMainBtn').addEventListener('click', async function() {
+        const amount = parseFloat(document.getElementById('ruleAmountMain').value);
+        const transactionNumber = document.getElementById('ruleTransactionNumberMain').value.trim();
+        
+        if (!amount || !transactionNumber) {
+          showToast('⚠️ يرجى إدخال المبلغ ورقم العملية', 'warning');
+          return;
+        }
+        
+        const ruleData = {
+          amount: amount,
+          transactionNumber: transactionNumber,
+          currency: selectedCurrency,
+          autoConfirm: true
+        };
+        
+        await addAutoVerificationRule(ruleData);
+      });
+      
+      // أحداث إغلاق النوافذ
+      document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', function() {
+          closeAllModals();
+        });
+      });
+      
+      // إغلاق النوافذ بالنقر خارجها
+      document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', function(e) {
+          if (e.target === this) {
+            closeAllModals();
+          }
+        });
+      });
+      
+      // أحداث النقر على أزرار القواعد
+      document.addEventListener('click', function(e) {
+        if (e.target.closest('.rule-btn.toggle')) {
+          const button = e.target.closest('.rule-btn.toggle');
+          const ruleId = button.getAttribute('data-id');
+          const currentStatus = button.getAttribute('data-status');
+          toggleRuleStatus(ruleId, currentStatus);
+        }
+        
+        if (e.target.closest('.rule-btn.delete')) {
+          const button = e.target.closest('.rule-btn.delete');
+          const ruleId = button.getAttribute('data-id');
+          deleteRule(ruleId);
+        }
+      });
+      
+      // تصدير بيانات السجلات المكررة
+      document.getElementById('exportDuplicateRecordsBtn').addEventListener('click', async function() {
+        try {
+          const snapshot = await db.collection('duplicate_records')
+            .orderBy('timestamp', 'desc')
+            .get();
+          
+          let csvContent = "تاريخ,المبلغ,العملة,رقم العملية,النوع,السبب,معرف المستخدم\n";
+          
+          snapshot.forEach(doc => {
+            const record = doc.data();
+            const date = formatDate(record.timestamp);
+            const type = record.type === 'fraud' ? 'احتيال' : 'مكرر';
+            
+            csvContent += `"${date}","${record.amount}","${record.currency}","${record.transactionNumber}","${type}","${record.reason || ''}","${record.userId || ''}"\n`;
+          });
+          
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          
+          link.setAttribute("href", url);
+          link.setAttribute("download", `duplicate_records_${new Date().toISOString().split('T')[0]}.csv`);
+          link.style.visibility = 'hidden';
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          showToast('✅ تم تصدير البيانات بنجاح', 'success');
+        } catch (error) {
+          console.error('❌ خطأ في تصدير البيانات:', error);
+          showToast('❌ خطأ في تصدير البيانات', 'error');
+        }
+      });
+      
+      // تحديث الإحصائيات كل 30 ثانية
+      setInterval(loadStatistics, 30000);
+    });
+  </script>
+</body>
+</html>
