@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Crynova — لوحة إدارة KYC</title>
 
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
@@ -50,8 +51,8 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* ============ LOGIN ============ */
-#loginScreen {
+/* ============ GATE SCREEN (Auto Login) ============ */
+#gateScreen {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -60,7 +61,7 @@ body {
     background: radial-gradient(ellipse at top, #1e1b4b 0%, #0f172a 60%);
 }
 
-.login-card {
+.gate-card {
     background: var(--card);
     border-radius: var(--radius-lg);
     padding: 44px 36px;
@@ -71,7 +72,7 @@ body {
     text-align: center;
 }
 
-.login-card .brand-icon {
+.gate-card .brand-icon {
     width: 72px;
     height: 72px;
     border-radius: 20px;
@@ -85,7 +86,7 @@ body {
     box-shadow: 0 8px 32px rgba(99, 102, 241, 0.35);
 }
 
-.login-card h1 {
+.gate-card h1 {
     font-size: 24px;
     font-weight: 800;
     margin-bottom: 6px;
@@ -95,100 +96,109 @@ body {
     background-clip: text;
 }
 
-.login-card p {
+.gate-card p {
     color: var(--text-2);
     font-size: 14px;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
 }
 
-.login-field {
-    text-align: right;
-    margin-bottom: 16px;
+/* حالة التحميل */
+.gate-state {
+    display: none;
+    padding: 12px 0;
 }
 
-.login-field label {
-    display: block;
-    color: var(--text-2);
-    font-size: 13px;
-    font-weight: 600;
+.gate-state.active { display: block; }
+
+.gate-state .spinner {
+    width: 44px;
+    height: 44px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 18px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.gate-state .status-text {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
     margin-bottom: 6px;
 }
 
-.login-field input {
-    width: 100%;
-    padding: 13px 16px;
+.gate-state .status-sub {
+    font-size: 13px;
+    color: var(--text-2);
+    line-height: 1.6;
+}
+
+.gate-state.error .error-icon {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: var(--danger-bg);
+    border: 2px solid rgba(239, 68, 68, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+    font-size: 30px;
+    color: var(--danger);
+}
+
+.gate-state.error .status-text { color: var(--danger); }
+
+.gate-state.success .success-icon {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: var(--success-bg);
+    border: 2px solid rgba(16, 185, 129, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+    font-size: 30px;
+    color: var(--success);
+}
+
+.gate-user-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: var(--bg);
-    border: 2px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-size: 15px;
-    font-family: inherit;
-    transition: var(--transition);
-    outline: none;
-    text-align: center;
+    border: 1px solid var(--border);
+    border-radius: 40px;
+    padding: 8px 16px;
+    font-size: 13px;
     font-weight: 700;
-    letter-spacing: 1px;
+    color: var(--text-2);
+    margin-top: 12px;
 }
 
-.login-field input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
-}
+.gate-user-badge i { color: var(--accent); }
 
-#loginBtn {
-    width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+.retry-btn {
+    margin-top: 18px;
+    padding: 11px 24px;
+    background: var(--accent);
     color: white;
     border: none;
     border-radius: var(--radius);
     font-family: inherit;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     transition: var(--transition);
-    margin-top: 8px;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
+    gap: 7px;
 }
 
-#loginBtn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
-}
-
-#loginBtn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.login-error {
-    background: var(--danger-bg);
-    color: var(--danger);
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    font-weight: 600;
-    margin-top: 14px;
-    display: none;
-    text-align: right;
-    border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.login-error i { margin-left: 4px; }
-
-.login-hint {
-    margin-top: 20px;
-    padding: 12px;
-    background: var(--bg);
-    border-radius: var(--radius-sm);
-    border: 1px dashed var(--border);
-    color: var(--text-3);
-    font-size: 12px;
-    line-height: 1.6;
-    text-align: right;
-}
-
-.login-hint i { color: var(--warning); margin-left: 4px; }
+.retry-btn:hover { background: var(--accent-hover); transform: translateY(-1px); }
 
 /* ============ APP ============ */
 #app { display: none; }
@@ -292,10 +302,7 @@ body {
     transition: var(--transition);
 }
 
-.stat-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--accent);
-}
+.stat-card:hover { transform: translateY(-2px); border-color: var(--accent); }
 
 .stat-card .stat-icon {
     width: 52px;
@@ -418,8 +425,6 @@ body {
 
 .refresh-btn:hover { color: var(--text); border-color: var(--accent); }
 .refresh-btn.spinning i { animation: spin 0.8s linear infinite; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ============ REQUESTS LIST ============ */
 .requests-list {
@@ -910,28 +915,39 @@ body {
 </head>
 <body>
 
-<!-- ========== LOGIN SCREEN ========== -->
-<div id="loginScreen">
-    <div class="login-card">
+<!-- ========== GATE SCREEN (Auto Login) ========== -->
+<div id="gateScreen">
+    <div class="gate-card">
         <div class="brand-icon"><i class="fas fa-shield-halved"></i></div>
         <h1>Crynova Admin</h1>
         <p>لوحة إدارة طلبات التحقق من الهوية</p>
 
-        <div class="login-field">
-            <label>رقم ID المشرف</label>
-            <input type="text" id="adminIdInput" placeholder="000000000" autocomplete="off" inputmode="numeric" maxlength="30">
+        <!-- حالة: جاري التحقق -->
+        <div class="gate-state active" id="stateChecking">
+            <div class="spinner"></div>
+            <div class="status-text">جاري التحقق من صلاحياتك...</div>
+            <div class="status-sub">يرجى الانتظار لحظة</div>
         </div>
 
-        <button id="loginBtn" onclick="handleLogin()">
-            <i class="fas fa-right-to-bracket"></i> تسجيل الدخول
-        </button>
+        <!-- حالة: نجاح -->
+        <div class="gate-state success" id="stateSuccess">
+            <div class="success-icon"><i class="fas fa-check"></i></div>
+            <div class="status-text" style="color:var(--success);">مرحباً بك ✅</div>
+            <div class="status-sub">جاري فتح اللوحة...</div>
+        </div>
 
-        <div class="login-error" id="loginError"></div>
-
-        <div class="login-hint">
-            <i class="fas fa-info-circle"></i>
-            يتم التحقق من صلاحيتك عبر مجموعة <strong>Admin</strong> في Firestore.
-            أدخل رقم ID الخاص بك كما هو مسجل في النظام.
+        <!-- حالة: خطأ -->
+        <div class="gate-state error" id="stateError">
+            <div class="error-icon"><i class="fas fa-ban"></i></div>
+            <div class="status-text" id="errorTitle">غير مسموح بالوصول</div>
+            <div class="status-sub" id="errorSub">هذا الحساب غير مسجل كمشرف</div>
+            <div class="gate-user-badge" id="userBadge" style="display:none;">
+                <i class="fas fa-fingerprint"></i>
+                <span id="userBadgeText">ID: —</span>
+            </div>
+            <button class="retry-btn" onclick="location.reload()">
+                <i class="fas fa-rotate-right"></i> إعادة المحاولة
+            </button>
         </div>
     </div>
 </div>
@@ -1034,9 +1050,7 @@ body {
             <h2><i class="fas fa-id-card"></i> تفاصيل طلب KYC</h2>
             <button class="modal-close" onclick="closeModal()">&times;</button>
         </div>
-        <div class="modal-body" id="modalBody">
-            <!-- يملأ ديناميكياً -->
-        </div>
+        <div class="modal-body" id="modalBody"></div>
     </div>
 </div>
 
@@ -1111,12 +1125,36 @@ function statusIcon(st) {
 }
 
 // ============================================================
+// GATE SCREEN HELPERS
+// ============================================================
+function showGateState(state, title, sub) {
+    ['stateChecking', 'stateSuccess', 'stateError'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+    });
+    if (state === 'checking') document.getElementById('stateChecking').classList.add('active');
+    if (state === 'success')  document.getElementById('stateSuccess').classList.add('active');
+    if (state === 'error') {
+        document.getElementById('stateError').classList.add('active');
+        if (title) document.getElementById('errorTitle').textContent = title;
+        if (sub)   document.getElementById('errorSub').textContent = sub;
+    }
+}
+
+function showUserIdInGate(id) {
+    const badge = document.getElementById('userBadge');
+    const text = document.getElementById('userBadgeText');
+    if (badge && text && id) {
+        text.textContent = 'ID: ' + id;
+        badge.style.display = 'inline-flex';
+    }
+}
+
+// ============================================================
 // SESSION
 // ============================================================
 function saveSession(adminObj) {
-    try {
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(adminObj));
-    } catch (e) { console.warn(e); }
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(adminObj)); } catch (e) {}
 }
 
 function getSession() {
@@ -1131,74 +1169,132 @@ function clearSession() {
 }
 
 // ============================================================
-// LOGIN (Admin ID only)
+// TELEGRAM ID
 // ============================================================
-async function handleLogin() {
-    const id = document.getElementById('adminIdInput').value.trim();
-    const btn = document.getElementById('loginBtn');
-    const errEl = document.getElementById('loginError');
+function getTelegramId() {
+    try {
+        const tg = window.Telegram?.WebApp;
+        if (!tg) return null;
 
-    errEl.style.display = 'none';
+        // توسيع الواجهة
+        if (typeof tg.expand === 'function') tg.expand();
 
-    if (!id) {
-        errEl.style.display = 'block';
-        errEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> يرجى إدخال رقم ID الخاص بك';
+        const u = tg.initDataUnsafe?.user;
+        if (u && u.id) return String(u.id);
+
+        return null;
+    } catch (e) {
+        console.warn('Telegram error:', e);
+        return null;
+    }
+}
+
+// ============================================================
+// AUTO LOGIN
+// ============================================================
+async function autoLogin() {
+    // 1) استعادة الجلسة إن وُجدت
+    const saved = getSession();
+    if (saved && saved.id) {
+        try {
+            const doc = await db.collection('Admin').doc(saved.id).get();
+            if (doc.exists && doc.data()?.active !== false) {
+                const data = doc.data() || {};
+                currentAdmin = {
+                    id: saved.id,
+                    name: data.name || data.displayName || ('Admin ' + saved.id),
+                    role: data.role || 'admin'
+                };
+                showGateState('success');
+                setTimeout(enterPanel, 300);
+                return;
+            }
+        } catch (e) {
+            console.warn('Session restore failed:', e);
+        }
+        clearSession();
+    }
+
+    // 2) أخذ ID من Telegram
+    const tgId = getTelegramId();
+
+    if (!tgId) {
+        showGateState('error',
+            'تعذّر التعرف عليك',
+            'يجب فتح هذه اللوحة من داخل Telegram حتى نتمكن من التحقق من هويتك تلقائياً.'
+        );
         return;
     }
 
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> جاري التحقق...';
+    showUserIdInGate(tgId);
 
+    // 3) التحقق من مجموعة Admin
     try {
-        // التحقق من وجود المستند Admin/{id}
-        const doc = await db.collection('Admin').doc(id).get();
+        const doc = await db.collection('Admin').doc(tgId).get();
 
         if (!doc.exists) {
-            errEl.style.display = 'block';
-            errEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> هذا الرقم غير مسجل كمشرف';
+            showGateState('error',
+                'غير مسموح بالوصول',
+                'هذا الحساب غير مسجل كمشرف في النظام.'
+            );
             return;
         }
 
         const data = doc.data() || {};
+
         if (data.active === false) {
-            errEl.style.display = 'block';
-            errEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> هذا الحساب معطّل. تواصل مع الإدارة العليا.';
+            showGateState('error',
+                'الحساب معطّل',
+                'تم تعطيل صلاحيات هذا المشرف. تواصل مع الإدارة العليا.'
+            );
             return;
         }
 
-        // دخول ناجح
+        // 4) نجاح
         currentAdmin = {
-            id: id,
-            name: data.name || data.displayName || ('Admin ' + id),
+            id: tgId,
+            name: data.name || data.displayName || ('Admin ' + tgId),
             role: data.role || 'admin'
         };
         saveSession(currentAdmin);
-        enterPanel();
+
+        showGateState('success');
+        setTimeout(enterPanel, 500);
 
     } catch (e) {
         console.error(e);
-        errEl.style.display = 'block';
-        errEl.innerHTML = '<i class="fas fa-exclamation-triangle"></i> خطأ: ' + esc(e.message || 'فشل الاتصال بقاعدة البيانات');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> تسجيل الدخول';
+        showGateState('error',
+            'خطأ في الاتصال',
+            'تعذّر الاتصال بقاعدة البيانات: ' + (e.message || 'خطأ غير معروف')
+        );
     }
 }
 
+// ============================================================
+// LOGOUT
+// ============================================================
 function handleLogout() {
     if (!confirm('هل تريد تسجيل الخروج؟')) return;
     clearSession();
     currentAdmin = null;
     if (unsubscribeSnapshot) { unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-    document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
-    document.getElementById('adminIdInput').value = '';
-    document.getElementById('loginError').style.display = 'none';
-    allRequests = [];
+    document.getElementById('gateScreen').style.display = 'flex';
+
+    // إعادة للحالة: سيحاول تلقائياً مرة أخرى بعد ثانية
+    showGateState('checking');
+    setTimeout(() => {
+        // مسح الجلسة فقط، لكن Telegram ID نفسه سيُعيد الدخول إذا كان مسجلاً
+        // (لمنع الدخول التلقائي الفوري: يجب تحديث الصفحة)
+        showGateState('error',
+            'تم تسجيل الخروج',
+            'أعد فتح اللوحة من Telegram للدخول مجدداً.'
+        );
+    }, 800);
 }
 
 function enterPanel() {
-    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('gateScreen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
 
     const label = currentAdmin.name + ' (ID: ' + currentAdmin.id + ')';
@@ -1206,37 +1302,6 @@ function enterPanel() {
 
     startRealtimeListener();
 }
-
-// Enter key submits login
-document.getElementById('adminIdInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleLogin();
-});
-
-// استعادة الجلسة عند تحميل الصفحة
-window.addEventListener('DOMContentLoaded', async () => {
-    const saved = getSession();
-    if (!saved || !saved.id) {
-        document.getElementById('loginScreen').style.display = 'flex';
-        return;
-    }
-    try {
-        const doc = await db.collection('Admin').doc(saved.id).get();
-        if (doc.exists && doc.data().active !== false) {
-            const data = doc.data() || {};
-            currentAdmin = {
-                id: saved.id,
-                name: data.name || data.displayName || ('Admin ' + saved.id),
-                role: data.role || 'admin'
-            };
-            enterPanel();
-            return;
-        }
-    } catch (e) {
-        console.warn('فشل استعادة الجلسة:', e);
-    }
-    clearSession();
-    document.getElementById('loginScreen').style.display = 'flex';
-});
 
 // ============================================================
 // REALTIME LISTENER
@@ -1544,13 +1609,12 @@ async function approveRequest(uid) {
     if (!confirm('هل أنت متأكد من الموافقة على هذا الطلب؟')) return;
 
     const btn = document.getElementById('approveBtn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> جاري المعالجة...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:white;border-top-color:transparent;"></span> جاري المعالجة...'; }
 
     try {
         const now = new Date();
         const by = currentAdmin ? currentAdmin.id : 'unknown';
 
-        // 1) تحديث kycRequests
         await db.collection('kycRequests').doc(uid).update({
             status: 'approved',
             reviewedAt: now,
@@ -1558,7 +1622,6 @@ async function approveRequest(uid) {
             rejectionReason: null
         });
 
-        // 2) تحديث users.kyc
         await db.collection('users').doc(uid).update({
             'kyc.status': 'approved',
             'kyc.reviewedAt': now,
@@ -1566,7 +1629,6 @@ async function approveRequest(uid) {
             kycStatus: 'approved'
         });
 
-        // 3) إشعار المستخدم (اختياري)
         notifyUser(uid, 'approved', '').catch(e => console.warn('إشعار فشل:', e));
 
         showToast('✅ تم قبول الطلب بنجاح', 'success');
@@ -1649,12 +1711,15 @@ async function notifyUser(uid, status, reason) {
 // ============================================================
 // INIT
 // ============================================================
-console.log('🚀 Crynova KYC Admin Panel — Admin ID Login');
+window.addEventListener('DOMContentLoaded', () => {
+    autoLogin();
+});
+
+console.log('🚀 Crynova KYC Admin Panel — Auto Login via Telegram');
 console.log('📌 الإعداد المطلوب:');
-console.log('1. أنشئ مستندات في مجموعة "Admin" بهذا الشكل:');
-console.log('   Admin/{adminId}  =>  { name: "اسم المشرف", active: true }');
-console.log('2. اضبط Firestore Rules (انظر التوثيق)');
-console.log('3. (اختياري) اربط Cloud Function للإشعار عبر البوت');
+console.log('1. سجّل مشرفيك في مجموعة "Admin":');
+console.log('   Admin/{telegramId}  =>  { name: "اسم المشرف", active: true }');
+console.log('2. اربط اللوحة بـ Bot عبر Telegram WebApp حتى يتم التعرف على ID تلقائياً');
 </script>
 
 </body>
