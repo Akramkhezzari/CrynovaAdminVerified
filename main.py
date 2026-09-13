@@ -37,9 +37,9 @@ FIREBASE_CREDENTIALS_PATH = os.getenv(
 FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
 
 # Telegram Bot للإشعارات
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8971860426:AAHA0GEx8OOe2hf95JljOYDVfBNLoMFekao")
 # يمكن أن يكون chat_id واحد أو عدة (مفصولة بفواصل)
-TELEGRAM_ADMIN_CHAT_IDS = os.getenv("TELEGRAM_ADMIN_CHAT_IDS", "")
+TELEGRAM_ADMIN_CHAT_IDS = os.getenv("TELEGRAM_ADMIN_CHAT_IDS", "5922049376")
 
 # Firestore
 KYC_COLLECTION = "kycRequests"
