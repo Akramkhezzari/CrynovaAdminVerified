@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>لوحة إدارة KYC — Crynova</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Cairo',sans-serif; }
+  body { background:#0f172a; color:#e2e8f0; min-height:100vh; padding:20px; }
+  .container { max-width:1100px; margin:0 auto; }
+
+  /* Login */
+  #loginScreen { max-width:400px; margin:80px auto; background:#1e293b; padding:32px; border-radius:20px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+  #loginScreen h1 { text-align:center; color:#6c5ce7; margin-bottom:24px; font-size:28px; }
+  #loginScreen input { width:100%; padding:14px; border-radius:12px; border:2px solid #334155;
+    background:#0f172a; color:white; font-size:16px; margin-bottom:16px; font-family:inherit; }
+  #loginScreen input:focus { outline:none; border-color:#6c5ce7; }
+  #loginScreen button { width:100%; padding:14px; border-radius:12px; border:none;
+    background:linear-gradient(135deg,#6c5ce7,#a29bfe); color:white; font-weight:700;
+    font-size:16px; cursor:pointer; font-family:inherit; transition:0.2s; }
+  #loginScreen button:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(108,92,231,0.5); }
+  #loginError { color:#ef4444; text-align:center; margin-top:12px; font-size:14px; }
+
+  /* Header */
+  .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;
+    padding-bottom:16px; border-bottom:2px solid #1e293b; }
+  .header h1 { color:#6c5ce7; font-size:24px; display:flex; align-items:center; gap:10px; }
+  .header button { padding:10px 20px; border-radius:10px; border:none; background:#1e293b; color:#94a3b8;
+    font-weight:600; cursor:pointer; font-family:inherit; transition:0.2s; font-size:14px; }
+  .header button:hover { background:#334155; color:white; }
+
+  /* Stats */
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
+  .stat { background:#1e293b; padding:20px; border-radius:16px; text-align:center; }
+  .stat .num { font-size:32px; font-weight:900; color:#6c5ce7; }
+  .stat .lbl { color:#94a3b8; font-size:14px; margin-top:4px; }
+
+  /* Cards */
+  #list { display:flex; flex-direction:column; gap:20px; }
+  .card { background:#1e293b; border-radius:20px; padding:24px; box-shadow:0 8px 32px rgba(0,0,0,0.3);
+    animation:fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+  .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;
+    padding-bottom:14px; border-bottom:1px solid #334155; flex-wrap:wrap; gap:8px; }
+  .card-header .user-name { font-size:20px; font-weight:800; color:white; }
+  .card-header .user-meta { color:#94a3b8; font-size:13px; margin-top:4px; }
+  .badge { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; }
+  .badge.pending { background:rgba(251,191,36,0.15); color:#fbbf24; }
+  .badge.approved { background:rgba(34,197,94,0.15); color:#22c55e; }
+  .badge.rejected { background:rgba(239,68,68,0.15); color:#ef4444; }
+
+  .media-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:16px 0; }
+  .media-item { background:#0f172a; border-radius:12px; overflow:hidden; position:relative; }
+  .media-item img, .media-item video { width:100%; height:200px; object-fit:cover; display:block;
+    cursor:pointer; transition:0.2s; }
+  .media-item img:hover, .media-item video:hover { transform:scale(1.02); }
+  .media-item .label { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.7);
+    padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+
+  .actions { display:flex; gap:10px; margin-top:16px; }
+  .actions button { flex:1; padding:12px; border-radius:12px; border:none; font-weight:700;
+    font-size:15px; cursor:pointer; font-family:inherit; transition:0.2s; }
+  .btn-approve { background:linear-gradient(135deg,#22c55e,#16a34a); color:white; }
+  .btn-approve:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(34,197,94,0.4); }
+  .btn-reject { background:linear-gradient(135deg,#ef4444,#dc2626); color:white; }
+  .btn-reject:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(239,68,68,0.4); }
+  .actions button:disabled { opacity:0.5; cursor:not-allowed; transform:none !important; }
+
+  .empty { text-align:center; padding:60px 20px; color:#94a3b8; }
+  .empty i { font-size:64px; margin-bottom:16px; color:#334155; }
+
+  /* Modal for image preview */
+  #imageModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:9999;
+    justify-content:center; align-items:center; padding:20px; }
+  #imageModal.active { display:flex; }
+  #imageModal img, #imageModal video { max-width:95%; max-height:95%; border-radius:12px; }
+
+  /* Reject reason modal */
+  #rejectModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999;
+    justify-content:center; align-items:center; padding:20px; }
+  #rejectModal.active { display:flex; }
+  #rejectModal .box { background:#1e293b; padding:24px; border-radius:16px; max-width:400px; width:100%; }
+  #rejectModal h3 { margin-bottom:16px; color:#ef4444; }
+  #rejectModal textarea { width:100%; padding:12px; border-radius:10px; border:2px solid #334155;
+    background:#0f172a; color:white; font-family:inherit; font-size:14px; resize:vertical;
+    min-height:100px; }
+  #rejectModal textarea:focus { outline:none; border-color:#ef4444; }
+  #rejectModal .row { display:flex; gap:10px; margin-top:16px; }
+  #rejectModal .row button { flex:1; padding:12px; border-radius:10px; border:none; font-weight:700;
+    cursor:pointer; font-family:inherit; }
+  #rejectModal .cancel { background:#334155; color:white; }
+  #rejectModal .confirm { background:#ef4444; color:white; }
+
+  @media (max-width:640px) {
+    .media-grid { grid-template-columns:1fr; }
+    .media-item img, .media-item video { height:240px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginScreen">
+  <h1><i class="fas fa-shield-alt"></i> لوحة الإدارة</h1>
+  <input type="password" id="passwordInput" placeholder="أدخل كلمة المرور" />
+  <button onclick="login()"><i class="fas fa-sign-in-alt"></i> دخول</button>
+  <div id="loginError"></div>
+</div>
+
+<!-- Main -->
+<div id="mainScreen" class="container" style="display:none;">
+  <div class="header">
+    <h1><i class="fas fa-shield-alt"></i> طلبات التحقق من الهوية</h1>
+    <div style="display:flex; gap:10px;">
+      <button onclick="loadRequests()"><i class="fas fa-sync"></i> تحديث</button>
+      <button onclick="logout()"><i class="fas fa-sign-out-alt"></i> خروج</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">إجمالي الطلبات</div></div>
+    <div class="stat"><div class="num" id="statPending" style="color:#fbbf24;">0</div><div class="lbl">قيد المراجعة</div></div>
+    <div class="stat"><div class="num" id="statApproved" style="color:#22c55e;">0</div><div class="lbl">موافق عليها</div></div>
+    <div class="stat"><div class="num" id="statRejected" style="color:#ef4444;">0</div><div class="lbl">مرفوضة</div></div>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" onclick="closeImageModal()">
+  <img id="modalImg" style="display:none;" />
+  <video id="modalVideo" style="display:none;" controls autoplay></video>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal">
+  <div class="box">
+    <h3><i class="fas fa-times-circle"></i> سبب الرفض</h3>
+    <textarea id="rejectReason" placeholder="مثال: صورة البطاقة غير واضحة / الفيديو غير مطابق..."></textarea>
+    <div class="row">
+      <button class="cancel" onclick="closeRejectModal()">إلغاء</button>
+      <button class="confirm" onclick="confirmReject()">تأكيد الرفض</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let TOKEN = sessionStorage.getItem('crynova_admin_token') || '';
+let currentRejectUserId = null;
+let allRequests = [];
+
+// ============================================================
+// Auth
+// ============================================================
+function showMain() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('mainScreen').style.display = 'block';
+  loadRequests();
+  // Auto-refresh every 30s
+  setInterval(loadRequests, 30000);
+}
+
+async function login() {
+  const password = document.getElementById('passwordInput').value;
+  try {
+    const res = await fetch('/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      TOKEN = data.token;
+      sessionStorage.setItem('crynova_admin_token', TOKEN);
+      showMain();
+    } else {
+      document.getElementById('loginError').textContent = data.error || 'خطأ';
+    }
+  } catch (e) {
+    document.getElementById('loginError').textContent = 'فشل الاتصال بالخادم';
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('crynova_admin_token');
+  location.reload();
+}
+
+// ============================================================
+// Load requests
+// ============================================================
+async function loadRequests() {
+  try {
+    const res = await fetch('/admin/api/requests', {
+      headers: { 'x-admin-token': TOKEN }
+    });
+    if (res.status === 401) { logout(); return; }
+    const list = await res.json();
+    allRequests = list;
+    renderList(list);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderList(list) {
+  // Stats
+  document.getElementById('statTotal').textContent = list.length;
+  document.getElementById('statPending').textContent = list.filter(r => r.status === 'pending').length;
+  document.getElementById('statApproved').textContent = list.filter(r => r.status === 'approved').length;
+  document.getElementById('statRejected').textContent = list.filter(r => r.status === 'rejected').length;
+
+  const container = document.getElementById('list');
+  if (!list.length) {
+    container.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><div>لا توجد طلبات</div></div>';
+    return;
+  }
+
+  container.innerHTML = list.map(r => {
+    const submitted = r.submittedAt ? new Date(r.submittedAt._seconds ? r.submittedAt._seconds * 1000 : r.submittedAt).toLocaleString('ar-DZ') : '—';
+    const badgeClass = r.status === 'approved' ? 'approved' : r.status === 'rejected' ? 'rejected' : 'pending';
+    const badgeText = r.status === 'approved' ? '✅ موافق عليه' : r.status === 'rejected' ? '❌ مرفوض' : '⏳ قيد المراجعة';
+    const isPending = r.status === 'pending';
+
+    return `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="user-name">${r.fullName || 'بدون اسم'}</div>
+            <div class="user-meta">
+              <i class="fas fa-calendar"></i> ${r.birthDate || '—'} • 
+              <i class="fas fa-id-badge"></i> ${r.userId} 
+              ${r.username ? ' • @' + r.username : ''}
+            </div>
+            <div class="user-meta" style="margin-top:4px;">
+              <i class="fas fa-clock"></i> ${submitted}
+            </div>
+          </div>
+          <span class="badge ${badgeClass}">${badgeText}</span>
+        </div>
+
+        <div class="media-grid">
+          <div class="media-item" onclick="showImage('${r.frontUrl}', 'image')">
+            <span class="label">📸 أمامي</span>
+            <img src="${r.frontUrl}" alt="front" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23334155%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2216%22%3Eصورة%3C/text%3E%3C/svg%3E'" />
+          </div>
+          <div class="media-item" onclick="showImage('${r.backUrl}', 'image')">
+            <span class="label">📸 خلفي</span>
+            <img src="${r.backUrl}" alt="back" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23334155%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2216%22%3Eصورة%3C/text%3E%3C/svg%3E'" />
+          </div>
+          <div class="media-item" onclick="showImage('${r.videoUrl}', 'video')">
+            <span class="label">🎥 فيديو</span>
+            <video src="${r.videoUrl}" preload="metadata"></video>
+          </div>
+        </div>
+
+        ${isPending ? `
+          <div class="actions">
+            <button class="btn-approve" onclick="approve('${r.userId}', this)">
+              <i class="fas fa-check"></i> موافقة
+            </button>
+            <button class="btn-reject" onclick="openRejectModal('${r.userId}')">
+              <i class="fas fa-times"></i> رفض
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// Approve / Reject
+// ============================================================
+async function approve(userId, btn) {
+  if (!confirm(`تأكيد الموافقة على المستخدم ${userId}؟`)) return;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
+  try {
+    const res = await fetch(`/admin/api/approve/${userId}`, {
+      method: 'POST',
+      headers: { 'x-admin-token': TOKEN }
+    });
+    if (res.ok) {
+      alert('✅ تمت الموافقة');
+      loadRequests();
+    } else {
+      alert('❌ فشل');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> موافقة';
+    }
+  } catch (e) {
+    alert('❌ خطأ في الاتصال');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> موافقة';
+  }
+}
+
+function openRejectModal(userId) {
+  currentRejectUserId = userId;
+  document.getElementById('rejectReason').value = '';
+  document.getElementById('rejectModal').classList.add('active');
+}
+
+function closeRejectModal() {
+  document.getElementById('rejectModal').classList.remove('active');
+  currentRejectUserId = null;
+}
+
+async function confirmReject() {
+  const reason = document.getElementById('rejectReason').value.trim();
+  if (!reason) { alert('⚠️ يرجى كتابة سبب الرفض'); return; }
+  const btn = document.querySelector('#rejectModal .confirm');
+  btn.disabled = true;
+  btn.textContent = 'جاري...';
+  try {
+    const res = await fetch(`/admin/api/reject/${currentRejectUserId}`, {
+      method: 'POST',
+      headers: {
+        'x-admin-token': TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ reason })
+    });
+    if (res.ok) {
+      alert('✅ تم الرفض');
+      closeRejectModal();
+      loadRequests();
+    } else {
+      alert('❌ فشل');
+    }
+  } catch (e) {
+    alert('❌ خطأ في الاتصال');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'تأكيد الرفض';
+  }
+}
+
+// ============================================================
+// Image preview
+// ============================================================
+function showImage(url, type) {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('modalImg');
+  const video = document.getElementById('modalVideo');
+  if (type === 'video') {
+    video.src = url;
+    video.style.display = 'block';
+    img.style.display = 'none';
+  } else {
+    img.src = url;
+    img.style.display = 'block';
+    video.style.display = 'none';
+    video.pause();
+  }
+  modal.classList.add('active');
+}
+
+function closeImageModal() {
+  document.getElementById('imageModal').classList.remove('active');
+  const video = document.getElementById('modalVideo');
+  video.pause();
+  video.src = '';
+}
+
+// Auto-login if token exists
+if (TOKEN) showMain();
+
+// Enter to login
+document.getElementById('passwordInput').addEventListener('keypress', e => {
+  if (e.key === 'Enter') login();
+});
+</script>
+</body>
+</html>
