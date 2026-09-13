@@ -1,241 +1,347 @@
-require('dotenv').config();
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const admin = require('firebase-admin');
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>لوحة إدارة KYC — Crynova</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Cairo',sans-serif; }
+  body { background:#0f172a; color:#e2e8f0; min-height:100vh; padding:20px; }
+  .container { max-width:1100px; margin:0 auto; }
+
+  /* Header */
+  .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;
+    padding-bottom:16px; border-bottom:2px solid #1e293b; flex-wrap:wrap; gap:10px; }
+  .header h1 { color:#6c5ce7; font-size:24px; display:flex; align-items:center; gap:10px; }
+  .header button { padding:10px 20px; border-radius:10px; border:none; background:#1e293b; color:#94a3b8;
+    font-weight:600; cursor:pointer; font-family:inherit; transition:0.2s; font-size:14px; }
+  .header button:hover { background:#334155; color:white; }
+
+  /* Stats */
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
+  .stat { background:#1e293b; padding:20px; border-radius:16px; text-align:center; }
+  .stat .num { font-size:32px; font-weight:900; color:#6c5ce7; }
+  .stat .lbl { color:#94a3b8; font-size:14px; margin-top:4px; }
+
+  /* Cards */
+  #list { display:flex; flex-direction:column; gap:20px; }
+  .card { background:#1e293b; border-radius:20px; padding:24px; box-shadow:0 8px 32px rgba(0,0,0,0.3);
+    animation:fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+  .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;
+    padding-bottom:14px; border-bottom:1px solid #334155; flex-wrap:wrap; gap:8px; }
+  .card-header .user-name { font-size:20px; font-weight:800; color:white; }
+  .card-header .user-meta { color:#94a3b8; font-size:13px; margin-top:4px; }
+  .badge { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; }
+  .badge.pending { background:rgba(251,191,36,0.15); color:#fbbf24; }
+  .badge.approved { background:rgba(34,197,94,0.15); color:#22c55e; }
+  .badge.rejected { background:rgba(239,68,68,0.15); color:#ef4444; }
+
+  .media-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:16px 0; }
+  .media-item { background:#0f172a; border-radius:12px; overflow:hidden; position:relative; }
+  .media-item img, .media-item video { width:100%; height:200px; object-fit:cover; display:block;
+    cursor:pointer; transition:0.2s; }
+  .media-item img:hover, .media-item video:hover { transform:scale(1.02); }
+  .media-item .label { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.7);
+    padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+
+  .actions { display:flex; gap:10px; margin-top:16px; }
+  .actions button { flex:1; padding:12px; border-radius:12px; border:none; font-weight:700;
+    font-size:15px; cursor:pointer; font-family:inherit; transition:0.2s; }
+  .btn-approve { background:linear-gradient(135deg,#22c55e,#16a34a); color:white; }
+  .btn-approve:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(34,197,94,0.4); }
+  .btn-reject { background:linear-gradient(135deg,#ef4444,#dc2626); color:white; }
+  .btn-reject:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(239,68,68,0.4); }
+  .actions button:disabled { opacity:0.5; cursor:not-allowed; transform:none !important; }
+
+  .empty { text-align:center; padding:60px 20px; color:#94a3b8; }
+  .empty i { font-size:64px; margin-bottom:16px; color:#334155; }
+
+  /* Modals */
+  #imageModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:9999;
+    justify-content:center; align-items:center; padding:20px; }
+  #imageModal.active { display:flex; }
+  #imageModal img, #imageModal video { max-width:95%; max-height:95%; border-radius:12px; }
+
+  #rejectModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999;
+    justify-content:center; align-items:center; padding:20px; }
+  #rejectModal.active { display:flex; }
+  #rejectModal .box { background:#1e293b; padding:24px; border-radius:16px; max-width:400px; width:100%; }
+  #rejectModal h3 { margin-bottom:16px; color:#ef4444; }
+  #rejectModal textarea { width:100%; padding:12px; border-radius:10px; border:2px solid #334155;
+    background:#0f172a; color:white; font-family:inherit; font-size:14px; resize:vertical; min-height:100px; }
+  #rejectModal textarea:focus { outline:none; border-color:#ef4444; }
+  #rejectModal .row { display:flex; gap:10px; margin-top:16px; }
+  #rejectModal .row button { flex:1; padding:12px; border-radius:10px; border:none; font-weight:700;
+    cursor:pointer; font-family:inherit; }
+  #rejectModal .cancel { background:#334155; color:white; }
+  #rejectModal .confirm { background:#ef4444; color:white; }
+
+  /* Loading */
+  #loading { text-align:center; padding:60px; color:#94a3b8; }
+  #loading i { font-size:48px; color:#6c5ce7; margin-bottom:16px; }
+
+  @media (max-width:640px) {
+    .media-grid { grid-template-columns:1fr; }
+    .media-item img, .media-item video { height:240px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1><i class="fas fa-shield-alt"></i> طلبات التحقق من الهوية</h1>
+    <button onclick="loadRequests()"><i class="fas fa-sync"></i> تحديث</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">إجمالي الطلبات</div></div>
+    <div class="stat"><div class="num" id="statPending" style="color:#fbbf24;">0</div><div class="lbl">قيد المراجعة</div></div>
+    <div class="stat"><div class="num" id="statApproved" style="color:#22c55e;">0</div><div class="lbl">موافق عليها</div></div>
+    <div class="stat"><div class="num" id="statRejected" style="color:#ef4444;">0</div><div class="lbl">مرفوضة</div></div>
+  </div>
+
+  <div id="loading">
+    <i class="fas fa-spinner fa-spin"></i>
+    <div>جاري التحميل...</div>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" onclick="closeImageModal()">
+  <img id="modalImg" style="display:none;" />
+  <video id="modalVideo" style="display:none;" controls autoplay></video>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal">
+  <div class="box">
+    <h3><i class="fas fa-times-circle"></i> سبب الرفض</h3>
+    <textarea id="rejectReason" placeholder="مثال: صورة البطاقة غير واضحة..."></textarea>
+    <div class="row">
+      <button class="cancel" onclick="closeRejectModal()">إلغاء</button>
+      <button class="confirm" onclick="confirmReject()">تأكيد الرفض</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// ⚠️⚠️⚠️  غيّر هذا الرابط إلى رابط خدمتك على Render  ⚠️⚠️⚠️
+// ═══════════════════════════════════════════════════════════════
+const API_BASE = 'https://crynovaverification.onrender.com';
+//                                 ↑↑↑
+//                    ضع رابط Render الفعلي هنا
+//                مثال: https://crynova-kyc.onrender.com
+//                مثال: https://my-kyc-bot.onrender.com
+// ═══════════════════════════════════════════════════════════════
+
+let currentRejectUserId = null;
+let refreshInterval = null;
+
+console.log('🌐 API_BASE:', API_BASE);
 
 // ============================================================
-// Firebase Init
+// Load requests
 // ============================================================
-let serviceAccount;
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    try {
-        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        console.log('✅ Firebase config loaded from env variable');
-    } catch (e) {
-        console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT:', e.message);
-        process.exit(1);
-    }
-} else if (fs.existsSync('./serviceAccountKey.json')) {
-    serviceAccount = require('./serviceAccountKey.json');
-    console.log('✅ Firebase config loaded from file');
-} else {
-    console.error('❌ FIREBASE_SERVICE_ACCOUNT not found!');
-    process.exit(1);
+async function loadRequests() {
+  const list = document.getElementById('list');
+  try {
+    const res = await fetch(API_BASE + '/admin/api/requests', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    document.getElementById('loading').style.display = 'none';
+    renderList(data);
+  } catch (e) {
+    console.error('❌ loadRequests:', e);
+    document.getElementById('loading').innerHTML = `
+      <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
+      <div style="color:#ef4444;font-weight:700;margin-bottom:8px;">فشل الاتصال بالخادم</div>
+      <div style="font-size:13px;color:#94a3b8;margin-top:8px;direction:ltr;text-align:left;">
+        API: <code style="color:#fbbf24;word-break:break-all;">${API_BASE}</code><br>
+        خطأ: <code style="color:#fbbf24;">${e.message}</code>
+      </div>
+      <div style="margin-top:16px;padding:14px;background:#0f172a;border-radius:10px;text-align:right;font-size:13px;line-height:1.9;">
+        <div style="color:#94a3b8;margin-bottom:8px;">🔍 تحقق من:</div>
+        <div>1. هل رابط Render صحيح؟ افتحه مباشرة في المتصفح</div>
+        <div>2. هل خدمة Render تعمل؟ (Dashboard → Logs)</div>
+        <div>3. هل الرابط موجود في أعلى ملف admin.html؟</div>
+      </div>
+      <button onclick="loadRequests()" style="margin-top:16px;padding:10px 20px;border-radius:10px;
+        border:none;background:#6c5ce7;color:white;font-weight:700;cursor:pointer;font-family:inherit;">
+        <i class="fas fa-redo"></i> إعادة المحاولة
+      </button>
+    `;
+  }
 }
 
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-const db = admin.firestore();
+function renderList(list) {
+  document.getElementById('statTotal').textContent = list.length;
+  document.getElementById('statPending').textContent = list.filter(r => r.status === 'pending').length;
+  document.getElementById('statApproved').textContent = list.filter(r => r.status === 'approved').length;
+  document.getElementById('statRejected').textContent = list.filter(r => r.status === 'rejected').length;
 
-// ============================================================
-// Express + Multer
-// ============================================================
-const app = express();
-app.use(express.json({ limit: '50mb' }));
+  const container = document.getElementById('list');
+  if (!list.length) {
+    container.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><div>لا توجد طلبات</div></div>';
+    return;
+  }
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
+  container.innerHTML = list.map(r => {
+    const submitted = r.submittedAt
+      ? new Date(r.submittedAt._seconds ? r.submittedAt._seconds * 1000 : r.submittedAt).toLocaleString('ar-DZ')
+      : '—';
+    const badgeClass = r.status === 'approved' ? 'approved' : r.status === 'rejected' ? 'rejected' : 'pending';
+    const badgeText = r.status === 'approved' ? '✅ موافق عليه' : r.status === 'rejected' ? '❌ مرفوض' : '⏳ قيد المراجعة';
+    const isPending = r.status === 'pending';
 
-const storage = multer.diskStorage({
-    destination: UPLOADS_DIR,
-    filename: (req, file, cb) => {
-        const userId = (req.body.userId || 'unknown').replace(/[^0-9a-zA-Z_-]/g, '');
-        const ts = Date.now();
-        const ext = file.fieldname === 'video' ? '.mp4' : '.jpg';
-        cb(null, `${userId}_${ts}_${file.fieldname}${ext}`);
-    }
-});
-const upload = multer({
-    storage,
-    limits: { fileSize: 50 * 1024 * 1024 }
-});
+    return `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="user-name">${r.fullName || 'بدون اسم'}</div>
+            <div class="user-meta">
+              <i class="fas fa-calendar"></i> ${r.birthDate || '—'} • 
+              <i class="fas fa-id-badge"></i> ${r.userId} 
+              ${r.username ? ' • @' + r.username : ''}
+            </div>
+            <div class="user-meta" style="margin-top:4px;">
+              <i class="fas fa-clock"></i> ${submitted}
+            </div>
+          </div>
+          <span class="badge ${badgeClass}">${badgeText}</span>
+        </div>
 
-// ============================================================
-// CORS — يسمح بالوصول من أي مكان
-// ============================================================
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
-    next();
-});
+        <div class="media-grid">
+          <div class="media-item" onclick="showImage('${API_BASE}${r.frontUrl}', 'image')">
+            <span class="label">📸 أمامي</span>
+            <img src="${API_BASE}${r.frontUrl}" alt="front" loading="lazy" />
+          </div>
+          <div class="media-item" onclick="showImage('${API_BASE}${r.backUrl}', 'image')">
+            <span class="label">📸 خلفي</span>
+            <img src="${API_BASE}${r.backUrl}" alt="back" loading="lazy" />
+          </div>
+          <div class="media-item" onclick="showImage('${API_BASE}${r.videoUrl}', 'video')">
+            <span class="label">🎥 فيديو</span>
+            <video src="${API_BASE}${r.videoUrl}" preload="metadata"></video>
+          </div>
+        </div>
 
-// ⚠️ TEST MODE — بدون تحقق مؤقتاً
-function requireAdmin(req, res, next) {
-    next(); // ← لا يوجد تحقق
+        ${isPending ? `
+          <div class="actions">
+            <button class="btn-approve" onclick="approve('${r.userId}', this)">
+              <i class="fas fa-check"></i> موافقة
+            </button>
+            <button class="btn-reject" onclick="openRejectModal('${r.userId}')">
+              <i class="fas fa-times"></i> رفض
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
 }
 
 // ============================================================
-// POST /kyc
+// Approve / Reject
 // ============================================================
-app.post(
-    '/kyc',
-    upload.fields([
-        { name: 'front', maxCount: 1 },
-        { name: 'back',  maxCount: 1 },
-        { name: 'video', maxCount: 1 }
-    ]),
-    async (req, res) => {
-        try {
-            const { userId, firstName, lastName, birthDate, username, displayName } = req.body;
-            const files = req.files || {};
-
-            if (!userId) return res.status(400).json({ error: 'userId مطلوب' });
-            if (!files.front || !files.back || !files.video) {
-                return res.status(400).json({ error: 'يجب إرسال الصور والفيديو' });
-            }
-
-            const kycData = {
-                userId,
-                firstName: firstName || '',
-                lastName: lastName || '',
-                fullName: `${firstName || ''} ${lastName || ''}`.trim(),
-                birthDate: birthDate || '',
-                username: username || '',
-                displayName: displayName || '',
-                frontFile: files.front[0].filename,
-                backFile:  files.back[0].filename,
-                videoFile: files.video[0].filename,
-                submittedAt: new Date(),
-                status: 'pending'
-            };
-
-            await db.collection('kyc_pending').doc(userId).set(kycData);
-
-            await db.collection('users').doc(userId).set({
-                telegramId: userId,
-                kycStatus: 'pending',
-                kycSubmittedAt: new Date(),
-                kycRejectionReason: null,
-                kycFullName: kycData.fullName,
-                kycBirthDate: birthDate || ''
-            }, { merge: true });
-
-            console.log(`✅ KYC received for ${userId}`);
-            res.json({ success: true });
-        } catch (e) {
-            console.error('❌ KYC error:', e);
-            res.status(500).json({ error: e.message });
-        }
+async function approve(userId, btn) {
+  if (!confirm(`تأكيد الموافقة على المستخدم ${userId}؟`)) return;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
+  try {
+    const res = await fetch(API_BASE + `/admin/api/approve/${userId}`, { method: 'POST' });
+    if (res.ok) {
+      alert('✅ تمت الموافقة');
+      loadRequests();
+    } else {
+      alert('❌ فشل');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> موافقة';
     }
-);
+  } catch (e) {
+    alert('❌ خطأ في الاتصال');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> موافقة';
+  }
+}
 
-// ============================================================
-// GET /admin/api/requests
-// ============================================================
-app.get('/admin/api/requests', requireAdmin, async (req, res) => {
-    try {
-        const snapshot = await db.collection('kyc_pending')
-            .orderBy('submittedAt', 'desc')
-            .limit(200)
-            .get();
-        const list = [];
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            list.push({
-                id: doc.id,
-                userId: d.userId,
-                fullName: d.fullName,
-                birthDate: d.birthDate,
-                username: d.username,
-                displayName: d.displayName,
-                frontUrl: `/files/${d.frontFile}`,
-                backUrl:  `/files/${d.backFile}`,
-                videoUrl: `/files/${d.videoFile}`,
-                submittedAt: d.submittedAt,
-                status: d.status
-            });
-        });
-        console.log(`📋 Returning ${list.length} requests`);
-        res.json(list);
-    } catch (e) {
-        console.error('❌ requests error:', e);
-        res.status(500).json({ error: e.message });
-    }
-});
+function openRejectModal(userId) {
+  currentRejectUserId = userId;
+  document.getElementById('rejectReason').value = '';
+  document.getElementById('rejectModal').classList.add('active');
+}
 
-// ============================================================
-// POST /admin/api/approve/:userId
-// ============================================================
-app.post('/admin/api/approve/:userId', requireAdmin, async (req, res) => {
-    const { userId } = req.params;
-    try {
-        await db.collection('users').doc(userId).set({
-            kycStatus: 'approved',
-            kycApprovedAt: new Date(),
-            kycRejectionReason: null
-        }, { merge: true });
-        await db.collection('kyc_pending').doc(userId).set(
-            { status: 'approved', reviewedAt: new Date() },
-            { merge: true }
-        );
-        console.log(`✅ Approved: ${userId}`);
-        res.json({ success: true });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: e.message });
-    }
-});
+function closeRejectModal() {
+  document.getElementById('rejectModal').classList.remove('active');
+  currentRejectUserId = null;
+}
 
-// ============================================================
-// POST /admin/api/reject/:userId
-// ============================================================
-app.post('/admin/api/reject/:userId', requireAdmin, async (req, res) => {
-    const { userId } = req.params;
-    const { reason } = req.body || {};
-    try {
-        await db.collection('users').doc(userId).set({
-            kycStatus: 'rejected',
-            kycRejectedAt: new Date(),
-            kycRejectionReason: reason || 'البيانات غير صحيحة أو الصور غير واضحة'
-        }, { merge: true });
-        await db.collection('kyc_pending').doc(userId).set(
-            { status: 'rejected', reviewedAt: new Date(), rejectionReason: reason || '' },
-            { merge: true }
-        );
-        console.log(`❌ Rejected: ${userId}`);
-        res.json({ success: true });
-    } catch (e) {
-        console.error(e);
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// ============================================================
-// GET /files/:name
-// ============================================================
-app.get('/files/:name', requireAdmin, (req, res) => {
-    const filePath = path.join(UPLOADS_DIR, req.params.name);
-    if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
-    res.sendFile(filePath);
-});
-
-// ============================================================
-// GET /admin
-// ============================================================
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'));
-});
-
-// ============================================================
-// Root
-// ============================================================
-app.get('/', (req, res) => {
-    res.json({
-        status: 'Crynova KYC Server is running ✅',
-        mode: 'TEST (no auth)',
-        time: new Date().toISOString()
+async function confirmReject() {
+  const reason = document.getElementById('rejectReason').value.trim();
+  if (!reason) { alert('⚠️ يرجى كتابة سبب الرفض'); return; }
+  const btn = document.querySelector('#rejectModal .confirm');
+  btn.disabled = true;
+  btn.textContent = 'جاري...';
+  try {
+    const res = await fetch(API_BASE + `/admin/api/reject/${currentRejectUserId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
     });
-});
+    if (res.ok) {
+      alert('✅ تم الرفض');
+      closeRejectModal();
+      loadRequests();
+    } else {
+      alert('❌ فشل');
+    }
+  } catch (e) {
+    alert('❌ خطأ في الاتصال');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'تأكيد الرفض';
+  }
+}
 
 // ============================================================
-// Start
+// Image preview
 // ============================================================
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`⚠️  TEST MODE — Authentication DISABLED`);
-    console.log(`📋 Admin panel: /admin`);
-});
+function showImage(url, type) {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('modalImg');
+  const video = document.getElementById('modalVideo');
+  if (type === 'video') {
+    video.src = url;
+    video.style.display = 'block';
+    img.style.display = 'none';
+  } else {
+    img.src = url;
+    img.style.display = 'block';
+    video.style.display = 'none';
+    video.pause();
+  }
+  modal.classList.add('active');
+}
+
+function closeImageModal() {
+  document.getElementById('imageModal').classList.remove('active');
+  const video = document.getElementById('modalVideo');
+  video.pause();
+  video.src = '';
+}
+
+// ============================================================
+// Boot
+// ============================================================
+loadRequests();
+refreshInterval = setInterval(loadRequests, 30000);
+</script>
+</body>
+</html>
