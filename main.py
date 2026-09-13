@@ -27,7 +27,7 @@ from firebase_admin import credentials, firestore
 # ============================================================
 
 # مفتاح API للتحقق من الطلبات
-API_KEY = os.getenv("CRYNOVA_API_KEY", "change-me-in-production")
+API_KEY = os.getenv("CRYNOVA_API_KEY", "srv-daikhjbm8hqs73d89rp0")
 
 # Firebase
 FIREBASE_CREDENTIALS_PATH = os.getenv(
