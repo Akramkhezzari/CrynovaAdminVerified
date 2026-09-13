@@ -9,7 +9,6 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 from typing import Optional
-from enum import Enum
 
 import httpx
 from fastapi import FastAPI, HTTPException, Header, status, Request
@@ -26,22 +25,17 @@ from firebase_admin import credentials, firestore
 # CONFIG
 # ============================================================
 
-# مفتاح API للتحقق من الطلبات
 API_KEY = os.getenv("CRYNOVA_API_KEY", "change-me-in-production")
 
-# Firebase
 FIREBASE_CREDENTIALS_PATH = os.getenv(
     "FIREBASE_CREDENTIALS_PATH",
     "/etc/secrets/serviceAccountKey.json"
 )
 FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
 
-# Telegram Bot للإشعارات
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-# يمكن أن يكون chat_id واحد أو عدة (مفصولة بفواصل)
 TELEGRAM_ADMIN_CHAT_IDS = os.getenv("TELEGRAM_ADMIN_CHAT_IDS", "")
 
-# Firestore
 KYC_COLLECTION = "kycRequests"
 SUPPORT_URL = "https://t.me/Crynova_support"
 
@@ -66,7 +60,6 @@ logger = logging.getLogger("crynova.kyc")
 # FIREBASE ADMIN INIT
 # ============================================================
 def init_firebase():
-    """تهيئة Firebase Admin SDK"""
     if firebase_admin._apps:
         logger.info("Firebase Admin already initialized")
         return
@@ -183,16 +176,14 @@ app.add_middleware(
 # TELEGRAM NOTIFICATIONS
 # ============================================================
 def get_admin_chat_ids():
-    """تحويل قائمة chat IDs من متغير البيئة"""
     if not TELEGRAM_ADMIN_CHAT_IDS:
         return []
     return [cid.strip() for cid in TELEGRAM_ADMIN_CHAT_IDS.split(",") if cid.strip()]
 
 
 async def send_telegram_message(chat_id: str, text: str, reply_markup: dict = None):
-    """إرسال رسالة Telegram"""
     if not TELEGRAM_BOT_TOKEN:
-        logger.warning("⚠️ TELEGRAM_BOT_TOKEN غير مضبوط، لا يمكن إرسال الإشعار")
+        logger.warning("⚠️ TELEGRAM_BOT_TOKEN غير مضبوط")
         return False
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -220,7 +211,6 @@ async def send_telegram_message(chat_id: str, text: str, reply_markup: dict = No
 
 
 async def notify_admins_new_kyc(kyc_data: dict):
-    """إشعار جميع المشرفين بطلب KYC جديد"""
     admin_ids = get_admin_chat_ids()
     logger.info(f"👥 عدد المشرفين للإشعار: {len(admin_ids)} - {admin_ids}")
 
@@ -272,20 +262,17 @@ async def notify_admins_new_kyc(kyc_data: dict):
 
 
 async def notify_user_kyc_reviewed(telegram_id: str, status: str, reason: str = ""):
-    """إشعار المستخدم بنتيجة مراجعة طلبه"""
     if status == "approved":
         message = (
             f"✅ <b>تم توثيق هويتك بنجاح!</b>\n\n"
-            f"مرحباً بك في منصة Crynova. تمت الموافقة على طلب التحقق من هويتك، "
-            f"ويمكنك الآن الاستفادة من جميع مزايا الحساب الموثق.\n\n"
+            f"مرحباً بك في منصة Crynova. تمت الموافقة على طلب التحقق من هويتك.\n\n"
             f"🎉 شكراً لثقتك بنا."
         )
     elif status == "rejected":
         message = (
             f"❌ <b>تم رفض طلب التحقق من هويتك</b>\n\n"
             f"<b>السبب:</b> {reason or 'يرجى إعادة الإرسال ببيانات صحيحة'}\n\n"
-            f"يمكنك إعادة تقديم الطلب من خلال التطبيق بعد تصحيح المشكلة.\n\n"
-            f"للاستفسار، تواصل مع الدعم: {SUPPORT_URL}"
+            f"للاستفسار: {SUPPORT_URL}"
         )
     else:
         return
@@ -357,9 +344,7 @@ async def submit_kyc(
     submission: KycSubmission,
     x_api_key: Optional[str] = Header(None)
 ):
-    """استقبال طلب KYC + إشعار المشرفين على Telegram"""
     verify_api_key(x_api_key)
-
     logger.info(f"📥 استلام طلب KYC من: {submission.telegramId}")
 
     try:
@@ -371,7 +356,7 @@ async def submit_kyc(
             existing_status = existing_data.get("status")
 
             if existing_status == "pending":
-                logger.warning(f"⚠️ طلب قيد المراجعة بالفعل: {submission.telegramId}")
+                logger.warning(f"⚠️ طلب قيد المراجعة: {submission.telegramId}")
                 return KycResponse(
                     success=False,
                     requestId=existing_data.get("requestId", ""),
@@ -424,11 +409,9 @@ async def submit_kyc(
             ]
         }
 
-        # حفظ في Firestore
         existing_ref.set(kyc_document, merge=True)
         logger.info(f"✅ تم حفظ الطلب: {request_id}")
 
-        # تحديث وثيقة المستخدم
         try:
             user_ref = db.collection("users").document(submission.telegramId)
             user_ref.update({
@@ -442,9 +425,8 @@ async def submit_kyc(
         except Exception as user_err:
             logger.warning(f"⚠️ لم يتم تحديث وثيقة المستخدم: {user_err}")
 
-        # 🔔 إرسال الإشعارات للمشرفين (مع تسجيل الأخطاء)
         try:
-            logger.info(f"📤 محاولة إرسال إشعار KYC إلى {len(get_admin_chat_ids())} مشرف...")
+            logger.info(f"📤 إرسال إشعار KYC إلى {len(get_admin_chat_ids())} مشرف...")
             await notify_admins_new_kyc(kyc_document)
             logger.info("✅ تم إرسال الإشعارات بنجاح")
             try:
@@ -572,7 +554,6 @@ async def review_kyc(
             "history": firestore.ArrayUnion([history_entry])
         })
 
-        # تحديث وثيقة المستخدم
         try:
             user_ref = db.collection("users").document(telegram_id)
             user_update = {
@@ -588,7 +569,6 @@ async def review_kyc(
         except Exception as user_err:
             logger.warning(f"لم يتم تحديث وثيقة المستخدم: {user_err}")
 
-        # 🔔 إشعار المستخدم بالنتيجة
         asyncio.create_task(
             notify_user_kyc_reviewed(telegram_id, new_status, review.rejectionReason or "")
         )
@@ -610,11 +590,10 @@ async def review_kyc(
 
 
 # ============================================================
-# TEST ENDPOINT - لاختبار الإشعارات
+# TEST ENDPOINT
 # ============================================================
 @app.post("/api/test/notify")
 async def test_notify(x_api_key: Optional[str] = Header(None)):
-    """اختبار إرسال إشعار Telegram للمشرفين"""
     verify_api_key(x_api_key)
 
     if not TELEGRAM_BOT_TOKEN:
@@ -636,11 +615,10 @@ async def test_notify(x_api_key: Optional[str] = Header(None)):
 
 
 # ============================================================
-# DEBUG ENDPOINTS - تشخيص المشاكل
+# DEBUG ENDPOINTS
 # ============================================================
 @app.get("/api/debug/config")
 async def debug_config(x_api_key: Optional[str] = Header(None)):
-    """عرض إعدادات السيرفر (بدون كشف التوكن)"""
     verify_api_key(x_api_key)
 
     bot_token_status = "Set ✅" if TELEGRAM_BOT_TOKEN else "Missing ❌"
@@ -665,7 +643,6 @@ async def debug_config(x_api_key: Optional[str] = Header(None)):
 
 @app.get("/api/debug/telegram")
 async def debug_telegram(x_api_key: Optional[str] = Header(None)):
-    """اختبار كامل لبوت Telegram - يحاول إرسال رسالة فعلية"""
     verify_api_key(x_api_key)
 
     debug_info = {
@@ -677,7 +654,6 @@ async def debug_telegram(x_api_key: Optional[str] = Header(None)):
         "errors": []
     }
 
-    # الخطوة 1: هل التوكن موجود؟
     if not TELEGRAM_BOT_TOKEN:
         debug_info["step_1_token_check"] = "❌ التوكن غير موجود"
         debug_info["errors"].append("TELEGRAM_BOT_TOKEN غير مضبوط في Render")
@@ -685,7 +661,6 @@ async def debug_telegram(x_api_key: Optional[str] = Header(None)):
     debug_info["step_1_token_check"] = "✅ التوكن موجود"
 
     async with httpx.AsyncClient(timeout=15.0) as client:
-        # الخطوة 2: getMe - التحقق من صحة التوكن
         try:
             r = await client.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getMe")
             data = r.json()
@@ -704,7 +679,6 @@ async def debug_telegram(x_api_key: Optional[str] = Header(None)):
             debug_info["step_2_getMe"] = f"❌ خطأ: {str(e)}"
             debug_info["errors"].append(f"getMe exception: {e}")
 
-        # الخطوة 3: getWebhookInfo - هل يوجد webhook قديم؟
         try:
             r = await client.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getWebhookInfo")
             data = r.json()
@@ -725,7 +699,6 @@ async def debug_telegram(x_api_key: Optional[str] = Header(None)):
         except Exception as e:
             debug_info["step_3_webhook_info"] = f"❌ خطأ: {str(e)}"
 
-        # الخطوة 4: عرض قائمة المشرفين
         admin_ids = get_admin_chat_ids()
         debug_info["step_4_admin_ids"] = {
             "count": len(admin_ids),
@@ -736,7 +709,6 @@ async def debug_telegram(x_api_key: Optional[str] = Header(None)):
             debug_info["errors"].append("لا يوجد admin chat IDs محدد")
             return debug_info
 
-        # الخطوة 5: إرسال رسالة اختبار لكل مشرف
         test_results = []
         for admin_id in admin_ids:
             try:
