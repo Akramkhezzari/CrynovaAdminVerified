@@ -11,23 +11,10 @@
   body { background:#0f172a; color:#e2e8f0; min-height:100vh; padding:20px; }
   .container { max-width:1100px; margin:0 auto; }
 
-  /* Status screens */
-  #statusScreen { max-width:600px; margin:80px auto; background:#1e293b; padding:40px 32px;
-    border-radius:20px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
-  #statusScreen i { font-size:64px; margin-bottom:20px; }
-  #statusScreen h1 { font-size:22px; margin-bottom:12px; }
-  #statusScreen p { color:#94a3b8; line-height:1.8; margin-bottom:8px; }
-  #statusScreen code { background:#0f172a; padding:4px 10px; border-radius:6px;
-    color:#fbbf24; font-size:13px; word-break:break-all; display:inline-block; margin:8px 0; }
-  .spinner { color:#6c5ce7; }
-  .error-icon { color:#ef4444; }
-  .success-icon { color:#22c55e; }
-
   /* Header */
   .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;
     padding-bottom:16px; border-bottom:2px solid #1e293b; flex-wrap:wrap; gap:10px; }
   .header h1 { color:#6c5ce7; font-size:24px; display:flex; align-items:center; gap:10px; }
-  .header .user-info { color:#94a3b8; font-size:13px; margin-top:4px; }
   .header button { padding:10px 20px; border-radius:10px; border:none; background:#1e293b; color:#94a3b8;
     font-weight:600; cursor:pointer; font-family:inherit; transition:0.2s; font-size:14px; }
   .header button:hover { background:#334155; color:white; }
@@ -93,6 +80,10 @@
   #rejectModal .cancel { background:#334155; color:white; }
   #rejectModal .confirm { background:#ef4444; color:white; }
 
+  /* Loading */
+  #loading { text-align:center; padding:60px; color:#94a3b8; }
+  #loading i { font-size:48px; color:#6c5ce7; margin-bottom:16px; }
+
   @media (max-width:640px) {
     .media-grid { grid-template-columns:1fr; }
     .media-item img, .media-item video { height:240px; }
@@ -101,23 +92,10 @@
 </head>
 <body>
 
-<!-- Status Screen (Loading / Error) -->
-<div id="statusScreen">
-  <i class="fas fa-spinner fa-spin spinner"></i>
-  <h1>جاري التحقق...</h1>
-  <p id="statusMsg">يتم التحقق من هويتك</p>
-</div>
-
-<!-- Main -->
-<div id="mainScreen" class="container" style="display:none;">
+<div class="container">
   <div class="header">
-    <div>
-      <h1><i class="fas fa-shield-alt"></i> طلبات التحقق من الهوية</h1>
-      <div class="user-info">مرحباً بك <span id="adminIdDisplay"></span></div>
-    </div>
-    <div style="display:flex; gap:10px;">
-      <button onclick="loadRequests()"><i class="fas fa-sync"></i> تحديث</button>
-    </div>
+    <h1><i class="fas fa-shield-alt"></i> طلبات التحقق من الهوية</h1>
+    <button onclick="loadRequests()"><i class="fas fa-sync"></i> تحديث</button>
   </div>
 
   <div class="stats">
@@ -125,6 +103,11 @@
     <div class="stat"><div class="num" id="statPending" style="color:#fbbf24;">0</div><div class="lbl">قيد المراجعة</div></div>
     <div class="stat"><div class="num" id="statApproved" style="color:#22c55e;">0</div><div class="lbl">موافق عليها</div></div>
     <div class="stat"><div class="num" id="statRejected" style="color:#ef4444;">0</div><div class="lbl">مرفوضة</div></div>
+  </div>
+
+  <div id="loading">
+    <i class="fas fa-spinner fa-spin"></i>
+    <div>جاري التحميل...</div>
   </div>
 
   <div id="list"></div>
@@ -140,7 +123,7 @@
 <div id="rejectModal">
   <div class="box">
     <h3><i class="fas fa-times-circle"></i> سبب الرفض</h3>
-    <textarea id="rejectReason" placeholder="مثال: صورة البطاقة غير واضحة / الفيديو غير مطابق..."></textarea>
+    <textarea id="rejectReason" placeholder="مثال: صورة البطاقة غير واضحة..."></textarea>
     <div class="row">
       <button class="cancel" onclick="closeRejectModal()">إلغاء</button>
       <button class="confirm" onclick="confirmReject()">تأكيد الرفض</button>
@@ -150,195 +133,42 @@
 
 <script>
 // ============================================================
-// Config
+// Config — TEST MODE
 // ============================================================
 const API_BASE = (window.location.protocol === 'file:')
   ? 'https://crynova-verification.onrender.com'
   : '';
 
-let ADMIN_UID = '5922049376';
 let currentRejectUserId = null;
 let refreshInterval = null;
 
-// ============================================================
-// Helpers
-// ============================================================
-function showStatus(icon, title, msg, extraHtml) {
-  const el = document.getElementById('statusScreen');
-  el.innerHTML = `
-    <i class="${icon}"></i>
-    <h1>${title}</h1>
-    <p>${msg}</p>
-    ${extraHtml || ''}
-  `;
-  el.style.display = 'block';
-  document.getElementById('mainScreen').style.display = 'none';
-}
-
-// ============================================================
-// Init
-// ============================================================
-function init() {
-  console.log('🌐 API_BASE:', API_BASE || '(relative)');
-
-  // 1. اقرأ uid من الرابط
-  const urlParams = new URLSearchParams(window.location.search);
-  const urlUid = (urlParams.get('uid') || '').trim();
-
-  // 2. جرّب sessionStorage
-  let savedUid = '';
-  try { savedUid = (sessionStorage.getItem('crynova_admin_uid') || '').trim(); } catch(e) {}
-
-  ADMIN_UID = urlUid || savedUid;
-
-  if (!ADMIN_UID) {
-    showStatus(
-      'fas fa-user-lock error-icon',
-      'الرابط لا يحتوي على معرّف',
-      'افتح الرابط مع معرّف Telegram الخاص بك:',
-      `<code>${window.location.origin}/admin?uid=YOUR_TELEGRAM_ID</code>
-       <p style="margin-top:16px;font-size:13px;color:#64748b;">
-         استبدل YOUR_TELEGRAM_ID برقم Telegram ID الخاص بك<br>
-         (تجد رقمك في إعدادات Telegram أو من @userinfobot)
-       </p>`
-    );
-    return;
-  }
-
-  // احفظ للجلسة القادمة
-  try { sessionStorage.setItem('crynova_admin_uid', ADMIN_UID); } catch(e) {}
-
-  document.getElementById('adminIdDisplay').textContent = `(ID: ${ADMIN_UID})`;
-
-  console.log('🔑 Admin UID:', ADMIN_UID);
-  verifyAndLoad();
-}
-
-// ============================================================
-// Verify + Load
-// ============================================================
-async function verifyAndLoad() {
-  showStatus(
-    'fas fa-spinner fa-spin spinner',
-    'جاري الاتصال بالخادم...',
-    'إذا كان الخادم نائماً، قد يأخذ حتى 30 ثانية للاستيقاظ'
-  );
-
-  let attempt = 0;
-  const maxAttempts = 12; // 60 ثانية إجمالاً
-
-  const tryVerify = async () => {
-    attempt++;
-    try {
-      const res = await fetch(API_BASE + '/admin/api/me', {
-        headers: { 'x-admin-uid': ADMIN_UID },
-        cache: 'no-store'
-      });
-
-      if (res.status === 401) {
-        const errData = await res.json().catch(() => ({}));
-        showStatus(
-          'fas fa-shield-alt error-icon',
-          'غير مصرح لك بالدخول',
-          `معرّفك (${ADMIN_UID}) لا يطابق مدير النظام.`,
-          `<p style="margin-top:16px;font-size:13px;color:#94a3b8;">
-             تأكد من إضافة <code>ADMIN_TELEGRAM_ID</code> في Render Environment بنفس الرقم <strong>${ADMIN_UID}</strong>
-           </p>
-           <p style="margin-top:8px;font-size:12px;color:#64748b;">
-             ${errData.error ? 'الخطأ: ' + errData.error : ''}
-           </p>`
-        );
-        return;
-      }
-
-      if (res.status === 500) {
-        const errData = await res.json().catch(() => ({}));
-        showStatus(
-          'fas fa-exclamation-triangle error-icon',
-          'خطأ في الخادم',
-          errData.error || 'لم يتم تهيئة ADMIN_TELEGRAM_ID في الخادم',
-          `<p style="margin-top:16px;font-size:13px;color:#94a3b8;">
-             أضف <code>ADMIN_TELEGRAM_ID</code> في Render → Environment ثم أعد النشر
-           </p>`
-        );
-        return;
-      }
-
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-
-      // نجح
-      console.log('✅ Authenticated');
-      showMain();
-      loadRequests();
-
-    } catch (e) {
-      console.error('❌ Connection attempt', attempt, ':', e.message);
-
-      if (attempt >= maxAttempts) {
-        showStatus(
-          'fas fa-wifi error-icon',
-          'فشل الاتصال بالخادم',
-          'تعذّر الوصول إلى الخادم بعد عدة محاولات.',
-          `<div style="text-align:right;background:#0f172a;padding:16px;border-radius:12px;margin-top:16px;font-size:13px;line-height:1.9;">
-             <div style="color:#94a3b8;margin-bottom:8px;">تشخيص:</div>
-             <div>• API_BASE: <code>${API_BASE || window.location.origin}</code></div>
-             <div>• UID: <code>${ADMIN_UID}</code></div>
-             <div>• آخر خطأ: <code>${e.message}</code></div>
-             <div style="margin-top:12px;color:#fbbf24;">
-               تحقّق من:<br>
-               1. اسم خدمة Render في API_BASE<br>
-               2. أن الخادم يعمل (افتح رابط Render مباشرة)<br>
-               3. Render → Logs لمعرفة الأخطاء
-             </div>
-           </div>
-           <button onclick="location.reload()" style="margin-top:16px;padding:12px 24px;border-radius:10px;border:none;
-             background:#6c5ce7;color:white;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;">
-             <i class="fas fa-redo"></i> إعادة المحاولة
-           </button>`
-        );
-        return;
-      }
-
-      // أعد المحاولة بعد 5 ثوانٍ
-      showStatus(
-        'fas fa-spinner fa-spin spinner',
-        'جاري الاتصال...',
-        `محاولة ${attempt} من ${maxAttempts} — الخادم قد يكون نائماً`
-      );
-      setTimeout(tryVerify, 5000);
-    }
-  };
-
-  tryVerify();
-}
-
-// ============================================================
-// Show main
-// ============================================================
-function showMain() {
-  document.getElementById('statusScreen').style.display = 'none';
-  document.getElementById('mainScreen').style.display = 'block';
-  if (refreshInterval) clearInterval(refreshInterval);
-  refreshInterval = setInterval(loadRequests, 30000);
-}
+console.log('🌐 API_BASE:', API_BASE || '(relative)');
 
 // ============================================================
 // Load requests
 // ============================================================
 async function loadRequests() {
+  const list = document.getElementById('list');
   try {
-    const res = await fetch(API_BASE + '/admin/api/requests', {
-      headers: { 'x-admin-uid': ADMIN_UID },
-      cache: 'no-store'
-    });
-    if (res.status === 401 || res.status === 500) {
-      setTimeout(verifyAndLoad, 100);
-      return;
-    }
-    const list = await res.json();
-    renderList(list);
+    const res = await fetch(API_BASE + '/admin/api/requests', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    document.getElementById('loading').style.display = 'none';
+    renderList(data);
   } catch (e) {
-    console.error('loadRequests error:', e);
+    console.error('❌ loadRequests:', e);
+    document.getElementById('loading').innerHTML = `
+      <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
+      <div style="color:#ef4444;font-weight:700;margin-bottom:8px;">فشل الاتصال بالخادم</div>
+      <div style="font-size:13px;color:#94a3b8;margin-top:8px;">
+        API: <code style="color:#fbbf24;">${API_BASE || window.location.origin}</code><br>
+        خطأ: <code style="color:#fbbf24;">${e.message}</code>
+      </div>
+      <button onclick="loadRequests()" style="margin-top:16px;padding:10px 20px;border-radius:10px;
+        border:none;background:#6c5ce7;color:white;font-weight:700;cursor:pointer;font-family:inherit;">
+        <i class="fas fa-redo"></i> إعادة المحاولة
+      </button>
+    `;
   }
 }
 
@@ -382,11 +212,11 @@ function renderList(list) {
         <div class="media-grid">
           <div class="media-item" onclick="showImage('${API_BASE}${r.frontUrl}', 'image')">
             <span class="label">📸 أمامي</span>
-            <img src="${API_BASE}${r.frontUrl}" alt="front" />
+            <img src="${API_BASE}${r.frontUrl}" alt="front" loading="lazy" />
           </div>
           <div class="media-item" onclick="showImage('${API_BASE}${r.backUrl}', 'image')">
             <span class="label">📸 خلفي</span>
-            <img src="${API_BASE}${r.backUrl}" alt="back" />
+            <img src="${API_BASE}${r.backUrl}" alt="back" loading="lazy" />
           </div>
           <div class="media-item" onclick="showImage('${API_BASE}${r.videoUrl}', 'video')">
             <span class="label">🎥 فيديو</span>
@@ -417,10 +247,7 @@ async function approve(userId, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
   try {
-    const res = await fetch(API_BASE + `/admin/api/approve/${userId}`, {
-      method: 'POST',
-      headers: { 'x-admin-uid': ADMIN_UID }
-    });
+    const res = await fetch(API_BASE + `/admin/api/approve/${userId}`, { method: 'POST' });
     if (res.ok) {
       alert('✅ تمت الموافقة');
       loadRequests();
@@ -456,10 +283,7 @@ async function confirmReject() {
   try {
     const res = await fetch(API_BASE + `/admin/api/reject/${currentRejectUserId}`, {
       method: 'POST',
-      headers: {
-        'x-admin-uid': ADMIN_UID,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason })
     });
     if (res.ok) {
@@ -507,7 +331,8 @@ function closeImageModal() {
 // ============================================================
 // Boot
 // ============================================================
-init();
+loadRequests();
+refreshInterval = setInterval(loadRequests, 30000);
 </script>
 </body>
 </html>
