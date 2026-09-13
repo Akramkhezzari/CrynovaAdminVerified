@@ -51,38 +51,24 @@ const upload = multer({
     limits: { fileSize: 50 * 1024 * 1024 }
 });
 
-const ADMIN_TELEGRAM_ID = String(process.env.ADMIN_TELEGRAM_ID || '').trim();
-
-console.log('🔐 Admin ID configured:', ADMIN_TELEGRAM_ID ? 'YES' : 'NO');
-
 // ============================================================
-// CORS (يسمح بالوصول من أي مكان للاختبار)
+// CORS — يسمح بالوصول من أي مكان
 // ============================================================
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, x-admin-uid');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     next();
 });
 
-// ============================================================
-// Auth middleware (by Telegram ID)
-// ============================================================
+// ⚠️ TEST MODE — بدون تحقق مؤقتاً
 function requireAdmin(req, res, next) {
-    const uid = String(req.headers['x-admin-uid'] || req.query.uid || '').trim();
-    if (!ADMIN_TELEGRAM_ID) {
-        return res.status(500).json({ error: 'ADMIN_TELEGRAM_ID غير مُهيّأ في الخادم' });
-    }
-    if (uid !== ADMIN_TELEGRAM_ID) {
-        console.log('❌ Unauthorized:', uid, '≠', ADMIN_TELEGRAM_ID);
-        return res.status(401).json({ error: 'غير مصرح', got: uid, expected: ADMIN_TELEGRAM_ID ? '***' : '' });
-    }
-    next();
+    next(); // ← لا يوجد تحقق
 }
 
 // ============================================================
-// POST /kyc  — استقبال طلب من التطبيق
+// POST /kyc
 // ============================================================
 app.post(
     '/kyc',
@@ -118,22 +104,14 @@ app.post(
 
             await db.collection('kyc_pending').doc(userId).set(kycData);
 
-            await db.collection('users').doc(userId).update({
+            await db.collection('users').doc(userId).set({
+                telegramId: userId,
                 kycStatus: 'pending',
                 kycSubmittedAt: new Date(),
                 kycRejectionReason: null,
                 kycFullName: kycData.fullName,
                 kycBirthDate: birthDate || ''
-            }).catch(async () => {
-                // إذا لم يكن المستخدم موجوداً
-                await db.collection('users').doc(userId).set({
-                    telegramId: userId,
-                    kycStatus: 'pending',
-                    kycSubmittedAt: new Date(),
-                    kycFullName: kycData.fullName,
-                    kycBirthDate: birthDate || ''
-                }, { merge: true });
-            });
+            }, { merge: true });
 
             console.log(`✅ KYC received for ${userId}`);
             res.json({ success: true });
@@ -145,14 +123,7 @@ app.post(
 );
 
 // ============================================================
-// GET /admin/api/me  — للتحقق من هوية المدير
-// ============================================================
-app.get('/admin/api/me', requireAdmin, (req, res) => {
-    res.json({ success: true, adminId: ADMIN_TELEGRAM_ID });
-});
-
-// ============================================================
-// GET /admin/api/requests  — قائمة الطلبات
+// GET /admin/api/requests
 // ============================================================
 app.get('/admin/api/requests', requireAdmin, async (req, res) => {
     try {
@@ -163,7 +134,6 @@ app.get('/admin/api/requests', requireAdmin, async (req, res) => {
         const list = [];
         snapshot.forEach(doc => {
             const d = doc.data();
-            const uid = String(req.headers['x-admin-uid'] || req.query.uid || '').trim();
             list.push({
                 id: doc.id,
                 userId: d.userId,
@@ -171,13 +141,14 @@ app.get('/admin/api/requests', requireAdmin, async (req, res) => {
                 birthDate: d.birthDate,
                 username: d.username,
                 displayName: d.displayName,
-                frontUrl: `/files/${d.frontFile}?uid=${encodeURIComponent(uid)}`,
-                backUrl:  `/files/${d.backFile}?uid=${encodeURIComponent(uid)}`,
-                videoUrl: `/files/${d.videoFile}?uid=${encodeURIComponent(uid)}`,
+                frontUrl: `/files/${d.frontFile}`,
+                backUrl:  `/files/${d.backFile}`,
+                videoUrl: `/files/${d.videoFile}`,
                 submittedAt: d.submittedAt,
                 status: d.status
             });
         });
+        console.log(`📋 Returning ${list.length} requests`);
         res.json(list);
     } catch (e) {
         console.error('❌ requests error:', e);
@@ -249,12 +220,12 @@ app.get('/admin', (req, res) => {
 });
 
 // ============================================================
-// Root + diagnostics
+// Root
 // ============================================================
 app.get('/', (req, res) => {
     res.json({
         status: 'Crynova KYC Server is running ✅',
-        adminConfigured: !!ADMIN_TELEGRAM_ID,
+        mode: 'TEST (no auth)',
         time: new Date().toISOString()
     });
 });
@@ -265,5 +236,6 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📋 Admin panel: /admin?uid=${ADMIN_TELEGRAM_ID || 'YOUR_ID'}`);
+    console.log(`⚠️  TEST MODE — Authentication DISABLED`);
+    console.log(`📋 Admin panel: /admin`);
 });
