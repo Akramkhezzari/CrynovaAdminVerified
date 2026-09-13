@@ -1,15 +1,17 @@
 # ============================================================
 # Crynova KYC Server - main.py
-# خادم استقبال طلبات التحقق من الهوية (KYC)
+# خادم استقبال طلبات التحقق من الهوية (KYC) + إشعارات Telegram
 # ============================================================
 
 import os
 import json
 import logging
+import asyncio
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional
 from enum import Enum
 
+import httpx
 from fastapi import FastAPI, HTTPException, Header, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -21,38 +23,36 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # ============================================================
-# CONFIG - الإعدادات
+# CONFIG
 # ============================================================
 
-# مفتاح API للتحقق من الطلبات (اختياري لكنه موصى به بشدة)
+# مفتاح API للتحقق من الطلبات
 API_KEY = os.getenv("CRYNOVA_API_KEY", "change-me-in-production")
 
-# مسار ملف Firebase Service Account
-# يمكن أن يكون:
-#   1. مسار ملف محلي: /etc/secrets/serviceAccount.json
-#   2. متغير بيئة JSON: FIREBASE_SERVICE_ACCOUNT_JSON
+# Firebase
 FIREBASE_CREDENTIALS_PATH = os.getenv(
     "FIREBASE_CREDENTIALS_PATH",
     "/etc/secrets/serviceAccountKey.json"
 )
 FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "")
 
-# اسم مجموعة Firestore لحفظ طلبات KYC
-KYC_COLLECTION = "kycRequests"
+# Telegram Bot للإشعارات
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+# يمكن أن يكون chat_id واحد أو عدة (مفصولة بفواصل)
+TELEGRAM_ADMIN_CHAT_IDS = os.getenv("TELEGRAM_ADMIN_CHAT_IDS", "")
 
-# رابط الدعم لعرضه في الأخطاء
+# Firestore
+KYC_COLLECTION = "kycRequests"
 SUPPORT_URL = "https://t.me/Crynova_support"
 
-# نطاقات CORS المسموح بها (Telegram + أي واجهة)
 ALLOWED_ORIGINS = [
     "https://telegram.org",
     "https://web.telegram.org",
-    "https://*.telegram.org",
-    "*",  # يمكن تضييقها لاحقاً في الإنتاج
+    "*",
 ]
 
 # ============================================================
-# LOGGING - إعداد السجلات
+# LOGGING
 # ============================================================
 logging.basicConfig(
     level=logging.INFO,
@@ -73,46 +73,48 @@ def init_firebase():
 
     try:
         if FIREBASE_CREDENTIALS_JSON:
-            # من متغير بيئة (مفيد في Render)
+            logger.info("Loading Firebase credentials from env variable...")
             cred_dict = json.loads(FIREBASE_CREDENTIALS_JSON)
             cred = credentials.Certificate(cred_dict)
-            logger.info("Firebase credentials loaded from env variable")
+            logger.info("✅ Firebase credentials loaded from env variable")
         elif os.path.exists(FIREBASE_CREDENTIALS_PATH):
-            # من ملف محلي
+            logger.info(f"Loading Firebase credentials from file: {FIREBASE_CREDENTIALS_PATH}")
             cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
-            logger.info(f"Firebase credentials loaded from {FIREBASE_CREDENTIALS_PATH}")
+            logger.info("✅ Firebase credentials loaded from file")
         else:
-            # استخدام Application Default Credentials
-            cred = credentials.ApplicationDefault()
-            logger.info("Firebase using Application Default Credentials")
+            raise RuntimeError(
+                "❌ لم يتم العثور على بيانات اعتماد Firebase!\n"
+                "الحل: أضف متغير البيئة FIREBASE_SERVICE_ACCOUNT_JSON في Render"
+            )
 
         firebase_admin.initialize_app(cred)
         logger.info("✅ Firebase Admin initialized successfully")
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ فشل تحليل JSON: {e}")
+        raise
     except Exception as e:
         logger.error(f"❌ Failed to initialize Firebase: {e}")
         raise
 
 
-# تهيئة Firebase عند بدء التطبيق
 init_firebase()
 db = firestore.client()
 
 
 # ============================================================
-# PYDANTIC MODELS - نماذج البيانات
+# PYDANTIC MODELS
 # ============================================================
 class KycSubmission(BaseModel):
-    """نموذج طلب KYC الوارد من التطبيق"""
-    telegramId: str = Field(..., min_length=1, max_length=50, description="معرف Telegram للمستخدم")
+    telegramId: str = Field(..., min_length=1, max_length=50)
     username: Optional[str] = Field("", max_length=100)
     displayName: Optional[str] = Field("", max_length=200)
     firstName: str = Field(..., min_length=2, max_length=50)
     lastName: str = Field(..., min_length=2, max_length=50)
     fullName: Optional[str] = Field("", max_length=100)
-    birthDate: str = Field(..., description="تاريخ الميلاد YYYY-MM-DD")
-    frontUrl: str = Field(..., min_length=10, description="رابط صورة البطاقة الأمامية")
-    backUrl: str = Field(..., min_length=10, description="رابط صورة البطاقة الخلفية")
-    videoUrl: str = Field(..., min_length=10, description="رابط الفيديو")
+    birthDate: str = Field(...)
+    frontUrl: str = Field(..., min_length=10)
+    backUrl: str = Field(..., min_length=10)
+    videoUrl: str = Field(..., min_length=10)
     submittedAt: Optional[str] = None
     source: Optional[str] = "telegram-webapp"
     platform: Optional[str] = "Crynova"
@@ -139,7 +141,6 @@ class KycSubmission(BaseModel):
 
 
 class KycResponse(BaseModel):
-    """نموذج الرد عند استقبال طلب KYC"""
     success: bool
     requestId: str
     message: str
@@ -148,13 +149,11 @@ class KycResponse(BaseModel):
 
 
 class KycReviewRequest(BaseModel):
-    """نموذج مراجعة الطلب (للمشرفين)"""
-    action: str = Field(..., description="approve أو reject")
+    action: str = Field(...)
     rejectionReason: Optional[str] = Field("", max_length=500)
 
 
 class HealthResponse(BaseModel):
-    """رد فحص الصحة"""
     status: str
     timestamp: str
     service: str
@@ -165,13 +164,12 @@ class HealthResponse(BaseModel):
 # ============================================================
 app = FastAPI(
     title="Crynova KYC Server",
-    description="خادم استقبال ومراجعة طلبات التحقق من الهوية لمنصة Crynova",
-    version="1.0.0",
+    description="خادم استقبال ومراجعة طلبات التحقق من الهوية + إشعارات Telegram",
+    version="1.1.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -182,20 +180,120 @@ app.add_middleware(
 
 
 # ============================================================
-# AUTHENTICATION HELPER
+# TELEGRAM NOTIFICATIONS
+# ============================================================
+def get_admin_chat_ids():
+    """تحويل قائمة chat IDs من متغير البيئة"""
+    if not TELEGRAM_ADMIN_CHAT_IDS:
+        return []
+    return [cid.strip() for cid in TELEGRAM_ADMIN_CHAT_IDS.split(",") if cid.strip()]
+
+
+async def send_telegram_message(chat_id: str, text: str, reply_markup: dict = None):
+    """إرسال رسالة Telegram"""
+    if not TELEGRAM_BOT_TOKEN:
+        logger.warning("⚠️ TELEGRAM_BOT_TOKEN غير مضبوط، لا يمكن إرسال الإشعار")
+        return False
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True
+    }
+    if reply_markup:
+        payload["reply_markup"] = json.dumps(reply_markup)
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(url, json=payload)
+            if response.status_code == 200:
+                logger.info(f"✅ تم إرسال الإشعار إلى {chat_id}")
+                return True
+            else:
+                logger.error(f"❌ فشل إرسال الإشعار إلى {chat_id}: {response.text}")
+                return False
+    except Exception as e:
+        logger.error(f"❌ خطأ في إرسال Telegram: {e}")
+        return False
+
+
+async def notify_admins_new_kyc(kyc_data: dict):
+    """إشعار جميع المشرفين بطلب KYC جديد"""
+    admin_ids = get_admin_chat_ids()
+    if not admin_ids:
+        logger.warning("⚠️ لا يوجد TELEGRAM_ADMIN_CHAT_IDS محدد، لا يمكن إرسال الإشعار")
+        return
+
+    telegram_id = kyc_data.get("telegramId", "—")
+    username = kyc_data.get("username", "")
+    display_name = kyc_data.get("displayName", "")
+    full_name = kyc_data.get("fullName", "")
+    birth_date = kyc_data.get("birthDate", "")
+    front_url = kyc_data.get("frontUrl", "")
+    back_url = kyc_data.get("backUrl", "")
+    video_url = kyc_data.get("videoUrl", "")
+    request_id = kyc_data.get("requestId", "")
+
+    # بناء الرسالة
+    message = (
+        f"🔔 <b>طلب توثيق هوية جديد</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n\n"
+        f"👤 <b>الاسم الكامل:</b> {full_name}\n"
+        f"📛 <b>الاسم:</b> {kyc_data.get('firstName', '')}\n"
+        f"📛 <b>اللقب:</b> {kyc_data.get('lastName', '')}\n"
+        f"🎂 <b>تاريخ الميلاد:</b> {birth_date}\n\n"
+        f"🆔 <b>Telegram ID:</b> <code>{telegram_id}</code>\n"
+        f"📱 <b>Username:</b> @{username if username else '—'}\n"
+        f"💬 <b>Display Name:</b> {display_name or '—'}\n\n"
+        f"🔖 <b>Request ID:</b> <code>{request_id}</code>\n"
+        f"⏰ <b>تم الإرسال:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📎 <b>المرفقات:</b>\n"
+        f"• <a href='{front_url}'>صورة البطاقة (أمامي)</a>\n"
+        f"• <a href='{back_url}'>صورة البطاقة (خلفي)</a>\n"
+        f"• <a href='{video_url}'>مقطع الفيديو</a>\n\n"
+        f"<i>لاستعراض البروفايل:</i> <a href='tg://user?id={telegram_id}'>فتح حساب المستخدم</a>"
+    )
+
+    # إرسال لكل مشرف
+    for admin_id in admin_ids:
+        await send_telegram_message(admin_id, message)
+
+
+async def notify_user_kyc_reviewed(telegram_id: str, status: str, reason: str = ""):
+    """إشعار المستخدم بنتيجة مراجعة طلبه"""
+    if status == "approved":
+        message = (
+            f"✅ <b>تم توثيق هويتك بنجاح!</b>\n\n"
+            f"مرحباً بك في منصة Crynova. تمت الموافقة على طلب التحقق من هويتك، "
+            f"ويمكنك الآن الاستفادة من جميع مزايا الحساب الموثق.\n\n"
+            f"🎉 شكراً لثقتك بنا."
+        )
+    elif status == "rejected":
+        message = (
+            f"❌ <b>تم رفض طلب التحقق من هويتك</b>\n\n"
+            f"<b>السبب:</b> {reason or 'يرجى إعادة الإرسال ببيانات صحيحة'}\n\n"
+            f"يمكنك إعادة تقديم الطلب من خلال التطبيق بعد تصحيح المشكلة.\n\n"
+            f"للاستفسار، تواصل مع الدعم: {SUPPORT_URL}"
+        )
+    else:
+        return
+
+    await send_telegram_message(telegram_id, message)
+
+
+# ============================================================
+# AUTHENTICATION
 # ============================================================
 def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    """التحقق من مفتاح API"""
-    if not x_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="مفتاح API مفقود (X-API-Key)"
-        )
-    if x_api_key != API_KEY:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="مفتاح API غير صالح"
-        )
+    if API_KEY and API_KEY != "change-me-in-production":
+        if not x_api_key or x_api_key != API_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="مفتاح API غير صالح أو مفقود"
+            )
     return True
 
 
@@ -221,7 +319,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/", response_model=HealthResponse)
 async def root():
-    """الصفحة الرئيسية - فحص سريع"""
     return HealthResponse(
         status="online",
         timestamp=datetime.now(timezone.utc).isoformat(),
@@ -229,16 +326,13 @@ async def root():
     )
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 async def health_check():
-    """فحص الصحة - يستخدمه Render لمراقبة التطبيق"""
     try:
-        # اختبار اتصال Firestore
         db.collection("_health").document("ping").set({
             "lastPing": datetime.now(timezone.utc),
             "service": "crynova-kyc"
         }, merge=True)
-
         return HealthResponse(
             status="healthy",
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -254,22 +348,12 @@ async def submit_kyc(
     submission: KycSubmission,
     x_api_key: Optional[str] = Header(None)
 ):
-    """
-    استقبال طلب KYC من تطبيق Telegram WebApp
-    """
-    # التحقق من API Key (اختياري - يمكن تعطيله في التطوير)
-    if API_KEY and API_KEY != "change-me-in-production":
-        if not x_api_key or x_api_key != API_KEY:
-            logger.warning(f"Invalid or missing API key from {submission.telegramId}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="مفتاح API غير صالح أو مفقود"
-            )
+    """استقبال طلب KYC + إشعار المشرفين على Telegram"""
+    verify_api_key(x_api_key)
 
-    logger.info(f"📥 استلام طلب KYC جديد من المستخدم: {submission.telegramId}")
+    logger.info(f"📥 استلام طلب KYC من: {submission.telegramId}")
 
     try:
-        # التحقق من عدم وجود طلب قيد المراجعة سابقاً
         existing_ref = db.collection(KYC_COLLECTION).document(submission.telegramId)
         existing_doc = existing_ref.get()
 
@@ -278,34 +362,28 @@ async def submit_kyc(
             existing_status = existing_data.get("status")
 
             if existing_status == "pending":
-                logger.warning(f"⚠️ المستخدم {submission.telegramId} لديه طلب قيد المراجعة بالفعل")
+                logger.warning(f"⚠️ طلب قيد المراجعة بالفعل: {submission.telegramId}")
                 return KycResponse(
                     success=False,
                     requestId=existing_data.get("requestId", ""),
                     message="لديك طلب قيد المراجعة بالفعل",
                     status="pending",
-                    submittedAt=existing_data.get("submittedAt", {}).isoformat()
-                    if isinstance(existing_data.get("submittedAt"), datetime)
-                    else str(existing_data.get("submittedAt", ""))
+                    submittedAt=str(existing_data.get("submittedAt", ""))
                 )
 
             if existing_status == "approved":
-                logger.info(f"✅ المستخدم {submission.telegramId} موثق بالفعل")
+                logger.info(f"✅ موثق بالفعل: {submission.telegramId}")
                 return KycResponse(
                     success=False,
                     requestId=existing_data.get("requestId", ""),
                     message="هويتك موثقة بالفعل",
                     status="approved",
-                    submittedAt=existing_data.get("submittedAt", {}).isoformat()
-                    if isinstance(existing_data.get("submittedAt"), datetime)
-                    else str(existing_data.get("submittedAt", ""))
+                    submittedAt=str(existing_data.get("submittedAt", ""))
                 )
 
-        # إنشاء معرّف طلب فريد
         now = datetime.now(timezone.utc)
         request_id = f"KYC_{submission.telegramId}_{int(now.timestamp())}"
 
-        # تجهيز البيانات للحفظ
         kyc_document = {
             "requestId": request_id,
             "telegramId": submission.telegramId,
@@ -325,8 +403,8 @@ async def submit_kyc(
             "reviewedAt": None,
             "reviewedBy": None,
             "rejectionReason": None,
-            "serverIp": None,
             "lastUpdated": now,
+            "notifiedAt": None,
             "history": [
                 {
                     "action": "submitted",
@@ -339,9 +417,9 @@ async def submit_kyc(
 
         # حفظ في Firestore
         existing_ref.set(kyc_document, merge=True)
-        logger.info(f"✅ تم حفظ طلب KYC بنجاح - Request ID: {request_id}")
+        logger.info(f"✅ تم حفظ الطلب: {request_id}")
 
-        # تحديث وثيقة المستخدم أيضاً (اختياري)
+        # تحديث وثيقة المستخدم
         try:
             user_ref = db.collection("users").document(submission.telegramId)
             user_ref.update({
@@ -352,12 +430,17 @@ async def submit_kyc(
                 "kyc.renderSyncStatus": "synced",
                 "kycStatus": "pending"
             })
-            logger.info(f"✅ تم تحديث حالة المستخدم {submission.telegramId}")
         except Exception as user_err:
             logger.warning(f"⚠️ لم يتم تحديث وثيقة المستخدم: {user_err}")
 
-        # إرسال إشعار للمشرفين (اختياري - يمكن إضافته لاحقاً)
-        # await notify_admins_new_kyc(kyc_document)
+        # 🔔 إرسال الإشعارات للمشرفين (بشكل غير متزامن حتى لا يتأخر الرد)
+        asyncio.create_task(notify_admins_new_kyc(kyc_document))
+
+        # تحديث حقل notifiedAt (اختياري - نتركه فارغاً ليعبأ بعد التأكد)
+        try:
+            existing_ref.update({"notifiedAt": now})
+        except Exception:
+            pass
 
         return KycResponse(
             success=True,
@@ -382,22 +465,12 @@ async def get_kyc_status(
     telegram_id: str,
     x_api_key: Optional[str] = Header(None)
 ):
-    """الحصول على حالة طلب KYC لمستخدم معين"""
-    if API_KEY and API_KEY != "change-me-in-production":
-        if not x_api_key or x_api_key != API_KEY:
-            raise HTTPException(status_code=401, detail="مفتاح API غير صالح")
-
+    verify_api_key(x_api_key)
     try:
         doc_ref = db.collection(KYC_COLLECTION).document(telegram_id)
         doc = doc_ref.get()
-
         if not doc.exists:
-            return {
-                "success": True,
-                "found": False,
-                "message": "لا يوجد طلب KYC لهذا المستخدم"
-            }
-
+            return {"success": True, "found": False, "message": "لا يوجد طلب KYC"}
         data = doc.to_dict()
         return {
             "success": True,
@@ -405,21 +478,18 @@ async def get_kyc_status(
             "status": data.get("status"),
             "requestId": data.get("requestId"),
             "submittedAt": data.get("submittedAt").isoformat()
-            if isinstance(data.get("submittedAt"), datetime)
-            else str(data.get("submittedAt")),
+            if isinstance(data.get("submittedAt"), datetime) else str(data.get("submittedAt")),
             "reviewedAt": data.get("reviewedAt").isoformat()
-            if isinstance(data.get("reviewedAt"), datetime) and data.get("reviewedAt")
-            else None,
+            if isinstance(data.get("reviewedAt"), datetime) and data.get("reviewedAt") else None,
             "rejectionReason": data.get("rejectionReason")
         }
-
     except Exception as e:
         logger.error(f"فشل جلب حالة KYC: {e}")
         raise HTTPException(status_code=500, detail="فشل جلب الحالة")
 
 
 # ============================================================
-# ADMIN ENDPOINTS (للمشرفين فقط)
+# ADMIN ENDPOINTS
 # ============================================================
 
 @app.get("/api/admin/kyc/list")
@@ -428,20 +498,11 @@ async def list_kyc_requests(
     limit: int = 50,
     x_api_key: Optional[str] = Header(None)
 ):
-    """
-    قائمة طلبات KYC (للمشرفين)
-    status_filter: pending, approved, rejected
-    """
-    if API_KEY and API_KEY != "change-me-in-production":
-        if not x_api_key or x_api_key != API_KEY:
-            raise HTTPException(status_code=401, detail="مفتاح API غير صالح")
-
+    verify_api_key(x_api_key)
     try:
         query = db.collection(KYC_COLLECTION)
-
         if status_filter:
             query = query.where("status", "==", status_filter)
-
         query = query.order_by("submittedAt", direction=firestore.Query.DESCENDING).limit(limit)
 
         docs = query.stream()
@@ -449,18 +510,12 @@ async def list_kyc_requests(
         for doc in docs:
             data = doc.to_dict()
             data["telegramId"] = doc.id
-            # تحويل التواريخ
-            for key in ["submittedAt", "reviewedAt", "lastUpdated"]:
+            for key in ["submittedAt", "reviewedAt", "lastUpdated", "notifiedAt"]:
                 if isinstance(data.get(key), datetime):
                     data[key] = data[key].isoformat()
             results.append(data)
 
-        return {
-            "success": True,
-            "count": len(results),
-            "requests": results
-        }
-
+        return {"success": True, "count": len(results), "requests": results}
     except Exception as e:
         logger.error(f"فشل جلب قائمة KYC: {e}")
         raise HTTPException(status_code=500, detail="فشل جلب القائمة")
@@ -472,12 +527,7 @@ async def review_kyc(
     review: KycReviewRequest,
     x_api_key: Optional[str] = Header(None)
 ):
-    """
-    مراجعة طلب KYC (موافقة أو رفض)
-    """
-    if API_KEY and API_KEY != "change-me-in-production":
-        if not x_api_key or x_api_key != API_KEY:
-            raise HTTPException(status_code=401, detail="مفتاح API غير صالح")
+    verify_api_key(x_api_key)
 
     if review.action not in ["approve", "reject"]:
         raise HTTPException(status_code=400, detail="action يجب أن يكون approve أو reject")
@@ -485,7 +535,6 @@ async def review_kyc(
     try:
         doc_ref = db.collection(KYC_COLLECTION).document(telegram_id)
         doc = doc_ref.get()
-
         if not doc.exists:
             raise HTTPException(status_code=404, detail="الطلب غير موجود")
 
@@ -499,7 +548,6 @@ async def review_kyc(
             "rejectionReason": review.rejectionReason if review.action == "reject" else None
         }
 
-        # إضافة للسجل
         history_entry = {
             "action": review.action,
             "timestamp": now,
@@ -515,21 +563,23 @@ async def review_kyc(
         # تحديث وثيقة المستخدم
         try:
             user_ref = db.collection("users").document(telegram_id)
-            user_ref.update({
+            user_update = {
                 "kyc.status": new_status,
                 "kyc.reviewedAt": now,
                 "kyc.rejectionReason": review.rejectionReason if review.action == "reject" else None,
                 "kycStatus": new_status
-            })
-
-            # إذا تمت الموافقة، تفعيل التحقق
+            }
             if review.action == "approve":
-                user_ref.update({
-                    "verified": True,
-                    "verificationExpiry": None  # دائم حتى يقرر المشرف
-                })
+                user_update["verified"] = True
+                user_update["verificationExpiry"] = None
+            user_ref.update(user_update)
         except Exception as user_err:
             logger.warning(f"لم يتم تحديث وثيقة المستخدم: {user_err}")
+
+        # 🔔 إشعار المستخدم بالنتيجة
+        asyncio.create_task(
+            notify_user_kyc_reviewed(telegram_id, new_status, review.rejectionReason or "")
+        )
 
         logger.info(f"✅ تمت مراجعة الطلب {telegram_id}: {new_status}")
 
@@ -548,14 +598,42 @@ async def review_kyc(
 
 
 # ============================================================
-# STARTUP / SHUTDOWN EVENTS
+# TEST ENDPOINT - لاختبار الإشعارات
+# ============================================================
+@app.post("/api/test/notify")
+async def test_notify(x_api_key: Optional[str] = Header(None)):
+    """اختبار إرسال إشعار Telegram للمشرفين"""
+    verify_api_key(x_api_key)
+
+    if not TELEGRAM_BOT_TOKEN:
+        return {"success": False, "message": "TELEGRAM_BOT_TOKEN غير مضبوط"}
+
+    admin_ids = get_admin_chat_ids()
+    if not admin_ids:
+        return {"success": False, "message": "TELEGRAM_ADMIN_CHAT_IDS غير مضبوط"}
+
+    results = []
+    for admin_id in admin_ids:
+        ok = await send_telegram_message(
+            admin_id,
+            "🧪 <b>اختبار إشعار Crynova KYC</b>\n\nإذا وصلتك هذه الرسالة، فالإشعارات تعمل بشكل صحيح ✅"
+        )
+        results.append({"chat_id": admin_id, "success": ok})
+
+    return {"success": True, "results": results}
+
+
+# ============================================================
+# STARTUP / SHUTDOWN
 # ============================================================
 @app.on_event("startup")
 async def startup_event():
     logger.info("=" * 60)
     logger.info("🚀 Crynova KYC Server starting...")
     logger.info(f"📌 KYC Collection: {KYC_COLLECTION}")
-    logger.info(f"🔐 API Key configured: {'Yes' if API_KEY else 'No'}")
+    logger.info(f"🔐 API Key configured: {'Yes' if API_KEY and API_KEY != 'change-me-in-production' else 'No'}")
+    logger.info(f"📨 Telegram Bot Token: {'Set ✅' if TELEGRAM_BOT_TOKEN else 'Missing ❌'}")
+    logger.info(f"👥 Admin Chat IDs: {len(get_admin_chat_ids())} admin(s)")
     logger.info(f"🔥 Firebase: Connected")
     logger.info("=" * 60)
 
@@ -566,14 +644,8 @@ async def shutdown_event():
 
 
 # ============================================================
-# MAIN ENTRY POINT
+# MAIN
 # ============================================================
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=port,
-        reload=False,
-        log_level="info"
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False, log_level="info")
