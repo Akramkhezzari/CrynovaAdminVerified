@@ -11,9 +11,15 @@
   body { background:#0f172a; color:#e2e8f0; min-height:100vh; padding:20px; }
   .container { max-width:1100px; margin:0 auto; }
 
+  /* Loading */
+  #loadingScreen { position:fixed; inset:0; background:#0f172a; display:flex;
+    flex-direction:column; justify-content:center; align-items:center; z-index:9000; }
+  #loadingScreen i { font-size:56px; color:#6c5ce7; margin-bottom:20px; }
+  #loadingScreen .msg { color:#94a3b8; font-size:16px; margin-top:8px; }
+
   /* Login */
   #loginScreen { max-width:400px; margin:80px auto; background:#1e293b; padding:32px; border-radius:20px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+    box-shadow:0 20px 60px rgba(0,0,0,0.5); display:none; }
   #loginScreen h1 { text-align:center; color:#6c5ce7; margin-bottom:24px; font-size:28px; }
   #loginScreen input { width:100%; padding:14px; border-radius:12px; border:2px solid #334155;
     background:#0f172a; color:white; font-size:16px; margin-bottom:16px; font-family:inherit; }
@@ -22,11 +28,13 @@
     background:linear-gradient(135deg,#6c5ce7,#a29bfe); color:white; font-weight:700;
     font-size:16px; cursor:pointer; font-family:inherit; transition:0.2s; }
   #loginScreen button:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(108,92,231,0.5); }
-  #loginError { color:#ef4444; text-align:center; margin-top:12px; font-size:14px; }
+  #loginError { color:#ef4444; text-align:center; margin-top:12px; font-size:14px; line-height:1.6; }
+  #loginError code { background:#0f172a; padding:2px 6px; border-radius:4px; font-size:12px;
+    color:#fbbf24; word-break:break-all; }
 
   /* Header */
   .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;
-    padding-bottom:16px; border-bottom:2px solid #1e293b; }
+    padding-bottom:16px; border-bottom:2px solid #1e293b; flex-wrap:wrap; gap:10px; }
   .header h1 { color:#6c5ce7; font-size:24px; display:flex; align-items:center; gap:10px; }
   .header button { padding:10px 20px; border-radius:10px; border:none; background:#1e293b; color:#94a3b8;
     font-weight:600; cursor:pointer; font-family:inherit; transition:0.2s; font-size:14px; }
@@ -73,21 +81,19 @@
   .empty { text-align:center; padding:60px 20px; color:#94a3b8; }
   .empty i { font-size:64px; margin-bottom:16px; color:#334155; }
 
-  /* Modal for image preview */
+  /* Modals */
   #imageModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:9999;
     justify-content:center; align-items:center; padding:20px; }
   #imageModal.active { display:flex; }
   #imageModal img, #imageModal video { max-width:95%; max-height:95%; border-radius:12px; }
 
-  /* Reject reason modal */
   #rejectModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999;
     justify-content:center; align-items:center; padding:20px; }
   #rejectModal.active { display:flex; }
   #rejectModal .box { background:#1e293b; padding:24px; border-radius:16px; max-width:400px; width:100%; }
   #rejectModal h3 { margin-bottom:16px; color:#ef4444; }
   #rejectModal textarea { width:100%; padding:12px; border-radius:10px; border:2px solid #334155;
-    background:#0f172a; color:white; font-family:inherit; font-size:14px; resize:vertical;
-    min-height:100px; }
+    background:#0f172a; color:white; font-family:inherit; font-size:14px; resize:vertical; min-height:100px; }
   #rejectModal textarea:focus { outline:none; border-color:#ef4444; }
   #rejectModal .row { display:flex; gap:10px; margin-top:16px; }
   #rejectModal .row button { flex:1; padding:12px; border-radius:10px; border:none; font-weight:700;
@@ -102,6 +108,13 @@
 </style>
 </head>
 <body>
+
+<!-- Loading -->
+<div id="loadingScreen">
+  <i class="fas fa-spinner fa-spin"></i>
+  <div class="msg">جاري الاتصال بالخادم...</div>
+  <div class="msg" style="font-size:13px; margin-top:16px;" id="loadingHint"></div>
+</div>
 
 <!-- Login -->
 <div id="loginScreen">
@@ -150,45 +163,137 @@
 </div>
 
 <script>
-let TOKEN = sessionStorage.getItem('crynova_admin_token') || '';
+let TOKEN = '';
 let currentRejectUserId = null;
-let allRequests = [];
+let refreshInterval = null;
 
 // ============================================================
-// Auth
+// API Base URL (auto-detect)
+// ============================================================
+// إذا فُتح من file:// نستخدم رابط Render مباشرة
+// إذا فُتح من Render نستخدم المسار النسبي
+const API_BASE = (window.location.protocol === 'file:')
+  ? 'https://crynova-verification.onrender.com'
+  : '';
+
+console.log('🌐 API_BASE:', API_BASE || '(relative)');
+
+// ============================================================
+// Auto-login via URL
+// ============================================================
+function init() {
+  // 1. جرب URL parameter أولاً
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlPwd = urlParams.get('pwd') || urlParams.get('token');
+
+  if (urlPwd) {
+    console.log('🔑 Auto-login via URL');
+    TOKEN = urlPwd;
+    try { sessionStorage.setItem('crynova_admin_token', TOKEN); } catch(e) {}
+    showMain();
+    return;
+  }
+
+  // 2. جرب sessionStorage
+  let saved = '';
+  try { saved = sessionStorage.getItem('crynova_admin_token') || ''; } catch(e) {}
+  if (saved) {
+    console.log('🔑 Auto-login via sessionStorage');
+    TOKEN = saved;
+    // اختبر التوكن قبل عرض اللوحة
+    verifyToken();
+    return;
+  }
+
+  // 3. عرض شاشة تسجيل الدخول
+  console.log('🔒 Showing login screen');
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'block';
+}
+
+async function verifyToken() {
+  try {
+    const res = await fetch(API_BASE + '/admin/api/requests', {
+      headers: { 'x-admin-token': TOKEN }
+    });
+    if (res.status === 401) {
+      console.log('❌ Token invalid');
+      try { sessionStorage.removeItem('crynova_admin_token'); } catch(e) {}
+      TOKEN = '';
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('loginScreen').style.display = 'block';
+      return;
+    }
+    const list = await res.json();
+    console.log('✅ Token valid');
+    showMain();
+    renderList(list);
+  } catch (e) {
+    console.error('❌ verifyToken failed:', e);
+    // الخادم قد يكون في cold start، ننتظر
+    document.querySelector('#loadingScreen .msg').textContent =
+      'جاري الانتظار... الخادم يستيقظ (قد يأخذ 30 ثانية)';
+    setTimeout(verifyToken, 5000);
+  }
+}
+
+// ============================================================
+// Show main
 // ============================================================
 function showMain() {
+  document.getElementById('loadingScreen').style.display = 'none';
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('mainScreen').style.display = 'block';
   loadRequests();
-  // Auto-refresh every 30s
-  setInterval(loadRequests, 30000);
+  // تحديث تلقائي كل 30 ثانية
+  if (refreshInterval) clearInterval(refreshInterval);
+  refreshInterval = setInterval(loadRequests, 30000);
 }
 
+// ============================================================
+// Login
+// ============================================================
 async function login() {
   const password = document.getElementById('passwordInput').value;
+  if (!password) {
+    document.getElementById('loginError').textContent = 'أدخل كلمة المرور';
+    return;
+  }
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = 'جاري تسجيل الدخول...';
+
   try {
-    const res = await fetch('/admin/login', {
+    const res = await fetch(API_BASE + '/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
     });
+
     const data = await res.json();
     if (data.success) {
       TOKEN = data.token;
-      sessionStorage.setItem('crynova_admin_token', TOKEN);
+      try { sessionStorage.setItem('crynova_admin_token', TOKEN); } catch(e) {}
+      errEl.textContent = '';
       showMain();
     } else {
-      document.getElementById('loginError').textContent = data.error || 'خطأ';
+      errEl.textContent = data.error || 'كلمة مرور خاطئة';
     }
   } catch (e) {
-    document.getElementById('loginError').textContent = 'فشل الاتصال بالخادم';
+    console.error('Login error:', e);
+    errEl.innerHTML = `
+      ❌ فشل الاتصال بالخادم<br>
+      <small style="color:#94a3b8; display:block; margin-top:8px;">
+        تأكد أنك تفتح اللوحة من رابط Render وليس من ملف محلي<br>
+        <code>${API_BASE || window.location.origin}/admin</code>
+      </small>
+    `;
   }
 }
 
 function logout() {
-  sessionStorage.removeItem('crynova_admin_token');
-  location.reload();
+  try { sessionStorage.removeItem('crynova_admin_token'); } catch(e) {}
+  if (refreshInterval) clearInterval(refreshInterval);
+  location.href = window.location.pathname; // يزيل الـ pwd من URL
 }
 
 // ============================================================
@@ -196,20 +301,18 @@ function logout() {
 // ============================================================
 async function loadRequests() {
   try {
-    const res = await fetch('/admin/api/requests', {
+    const res = await fetch(API_BASE + '/admin/api/requests', {
       headers: { 'x-admin-token': TOKEN }
     });
     if (res.status === 401) { logout(); return; }
     const list = await res.json();
-    allRequests = list;
     renderList(list);
   } catch (e) {
-    console.error(e);
+    console.error('loadRequests error:', e);
   }
 }
 
 function renderList(list) {
-  // Stats
   document.getElementById('statTotal').textContent = list.length;
   document.getElementById('statPending').textContent = list.filter(r => r.status === 'pending').length;
   document.getElementById('statApproved').textContent = list.filter(r => r.status === 'approved').length;
@@ -222,7 +325,9 @@ function renderList(list) {
   }
 
   container.innerHTML = list.map(r => {
-    const submitted = r.submittedAt ? new Date(r.submittedAt._seconds ? r.submittedAt._seconds * 1000 : r.submittedAt).toLocaleString('ar-DZ') : '—';
+    const submitted = r.submittedAt
+      ? new Date(r.submittedAt._seconds ? r.submittedAt._seconds * 1000 : r.submittedAt).toLocaleString('ar-DZ')
+      : '—';
     const badgeClass = r.status === 'approved' ? 'approved' : r.status === 'rejected' ? 'rejected' : 'pending';
     const badgeText = r.status === 'approved' ? '✅ موافق عليه' : r.status === 'rejected' ? '❌ مرفوض' : '⏳ قيد المراجعة';
     const isPending = r.status === 'pending';
@@ -245,17 +350,17 @@ function renderList(list) {
         </div>
 
         <div class="media-grid">
-          <div class="media-item" onclick="showImage('${r.frontUrl}', 'image')">
+          <div class="media-item" onclick="showImage('${API_BASE}${r.frontUrl}', 'image')">
             <span class="label">📸 أمامي</span>
-            <img src="${r.frontUrl}" alt="front" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23334155%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2216%22%3Eصورة%3C/text%3E%3C/svg%3E'" />
+            <img src="${API_BASE}${r.frontUrl}" alt="front" />
           </div>
-          <div class="media-item" onclick="showImage('${r.backUrl}', 'image')">
+          <div class="media-item" onclick="showImage('${API_BASE}${r.backUrl}', 'image')">
             <span class="label">📸 خلفي</span>
-            <img src="${r.backUrl}" alt="back" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22%3E%3Crect fill=%22%23334155%22 width=%22200%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2216%22%3Eصورة%3C/text%3E%3C/svg%3E'" />
+            <img src="${API_BASE}${r.backUrl}" alt="back" />
           </div>
-          <div class="media-item" onclick="showImage('${r.videoUrl}', 'video')">
+          <div class="media-item" onclick="showImage('${API_BASE}${r.videoUrl}', 'video')">
             <span class="label">🎥 فيديو</span>
-            <video src="${r.videoUrl}" preload="metadata"></video>
+            <video src="${API_BASE}${r.videoUrl}" preload="metadata"></video>
           </div>
         </div>
 
@@ -282,7 +387,7 @@ async function approve(userId, btn) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
   try {
-    const res = await fetch(`/admin/api/approve/${userId}`, {
+    const res = await fetch(API_BASE + `/admin/api/approve/${userId}`, {
       method: 'POST',
       headers: { 'x-admin-token': TOKEN }
     });
@@ -319,7 +424,7 @@ async function confirmReject() {
   btn.disabled = true;
   btn.textContent = 'جاري...';
   try {
-    const res = await fetch(`/admin/api/reject/${currentRejectUserId}`, {
+    const res = await fetch(API_BASE + `/admin/api/reject/${currentRejectUserId}`, {
       method: 'POST',
       headers: {
         'x-admin-token': TOKEN,
@@ -369,8 +474,10 @@ function closeImageModal() {
   video.src = '';
 }
 
-// Auto-login if token exists
-if (TOKEN) showMain();
+// ============================================================
+// Boot
+// ============================================================
+init();
 
 // Enter to login
 document.getElementById('passwordInput').addEventListener('keypress', e => {
