@@ -1,347 +1,2143 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>لوحة إدارة KYC — Crynova</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; font-family:'Cairo',sans-serif; }
-  body { background:#0f172a; color:#e2e8f0; min-height:100vh; padding:20px; }
-  .container { max-width:1100px; margin:0 auto; }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Crynova - استثمر واربح (DZD & USDT)</title>
 
-  /* Header */
-  .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;
-    padding-bottom:16px; border-bottom:2px solid #1e293b; flex-wrap:wrap; gap:10px; }
-  .header h1 { color:#6c5ce7; font-size:24px; display:flex; align-items:center; gap:10px; }
-  .header button { padding:10px 20px; border-radius:10px; border:none; background:#1e293b; color:#94a3b8;
-    font-weight:600; cursor:pointer; font-family:inherit; transition:0.2s; font-size:14px; }
-  .header button:hover { background:#334155; color:white; }
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 
-  /* Stats */
-  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
-  .stat { background:#1e293b; padding:20px; border-radius:16px; text-align:center; }
-  .stat .num { font-size:32px; font-weight:900; color:#6c5ce7; }
-  .stat .lbl { color:#94a3b8; font-size:14px; margin-top:4px; }
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Tajawal:wght@400;700;800&display=swap" rel="stylesheet" />
 
-  /* Cards */
-  #list { display:flex; flex-direction:column; gap:20px; }
-  .card { background:#1e293b; border-radius:20px; padding:24px; box-shadow:0 8px 32px rgba(0,0,0,0.3);
-    animation:fadeIn 0.3s ease; }
-  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;
-    padding-bottom:14px; border-bottom:1px solid #334155; flex-wrap:wrap; gap:8px; }
-  .card-header .user-name { font-size:20px; font-weight:800; color:white; }
-  .card-header .user-meta { color:#94a3b8; font-size:13px; margin-top:4px; }
-  .badge { padding:6px 14px; border-radius:20px; font-size:12px; font-weight:700; }
-  .badge.pending { background:rgba(251,191,36,0.15); color:#fbbf24; }
-  .badge.approved { background:rgba(34,197,94,0.15); color:#22c55e; }
-  .badge.rejected { background:rgba(239,68,68,0.15); color:#ef4444; }
+        :root {
+            --bg-primary: #f0f4f8;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f8faff;
+            --bg-input: #f0f4f8;
+            --bg-nav: #ffffff;
+            --text-primary: #1a1a2e;
+            --text-secondary: #4a4a6a;
+            --text-muted: #8a8aaa;
+            --text-white: #ffffff;
+            --accent: #6c5ce7;
+            --accent-light: #a29bfe;
+            --accent-glow: rgba(108, 92, 231, 0.15);
+            --accent-gradient: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            --success: #00b894;
+            --success-light: rgba(0, 184, 148, 0.12);
+            --warning: #fdcb6e;
+            --warning-light: rgba(253, 203, 110, 0.12);
+            --danger: #e17055;
+            --danger-light: rgba(225, 112, 85, 0.12);
+            --info: #0984e3;
+            --info-light: rgba(9, 132, 227, 0.12);
+            --dzd-color: #e17055;
+            --dzd-light: rgba(225, 112, 85, 0.12);
+            --gold: #f9a825;
+            --usdt-color: #26a17b;
+            --binance-color: #f3ba2f;
+            --redotpay-color: #8b5cf6;
+            --border: #e2e8f0;
+            --border-light: #f0f4f8;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.08);
+            --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.12);
+            --shadow-glow: 0 4px 24px rgba(108, 92, 231, 0.25);
+            --radius-sm: 10px;
+            --radius-md: 16px;
+            --radius-lg: 24px;
+            --radius-xl: 32px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-  .media-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:16px 0; }
-  .media-item { background:#0f172a; border-radius:12px; overflow:hidden; position:relative; }
-  .media-item img, .media-item video { width:100%; height:200px; object-fit:cover; display:block;
-    cursor:pointer; transition:0.2s; }
-  .media-item img:hover, .media-item video:hover { transform:scale(1.02); }
-  .media-item .label { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.7);
-    padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+        html { scroll-behavior: smooth; }
 
-  .actions { display:flex; gap:10px; margin-top:16px; }
-  .actions button { flex:1; padding:12px; border-radius:12px; border:none; font-weight:700;
-    font-size:15px; cursor:pointer; font-family:inherit; transition:0.2s; }
-  .btn-approve { background:linear-gradient(135deg,#22c55e,#16a34a); color:white; }
-  .btn-approve:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(34,197,94,0.4); }
-  .btn-reject { background:linear-gradient(135deg,#ef4444,#dc2626); color:white; }
-  .btn-reject:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(239,68,68,0.4); }
-  .actions button:disabled { opacity:0.5; cursor:not-allowed; transform:none !important; }
+        body {
+            font-family: 'Cairo', 'Tajawal', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 90px;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
 
-  .empty { text-align:center; padding:60px 20px; color:#94a3b8; }
-  .empty i { font-size:64px; margin-bottom:16px; color:#334155; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 10px; }
 
-  /* Modals */
-  #imageModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:9999;
-    justify-content:center; align-items:center; padding:20px; }
-  #imageModal.active { display:flex; }
-  #imageModal img, #imageModal video { max-width:95%; max-height:95%; border-radius:12px; }
+        .app-container { max-width: 480px; margin: 0 auto; padding: 16px 16px 24px; }
 
-  #rejectModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999;
-    justify-content:center; align-items:center; padding:20px; }
-  #rejectModal.active { display:flex; }
-  #rejectModal .box { background:#1e293b; padding:24px; border-radius:16px; max-width:400px; width:100%; }
-  #rejectModal h3 { margin-bottom:16px; color:#ef4444; }
-  #rejectModal textarea { width:100%; padding:12px; border-radius:10px; border:2px solid #334155;
-    background:#0f172a; color:white; font-family:inherit; font-size:14px; resize:vertical; min-height:100px; }
-  #rejectModal textarea:focus { outline:none; border-color:#ef4444; }
-  #rejectModal .row { display:flex; gap:10px; margin-top:16px; }
-  #rejectModal .row button { flex:1; padding:12px; border-radius:10px; border:none; font-weight:700;
-    cursor:pointer; font-family:inherit; }
-  #rejectModal .cancel { background:#334155; color:white; }
-  #rejectModal .confirm { background:#ef4444; color:white; }
+        .app-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 0 20px; }
+        .app-header .logo {
+            font-size: 20px; font-weight: 900;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .app-header .logo i { -webkit-text-fill-color: var(--accent); font-size: 24px; }
+        .app-header .header-actions { display: flex; gap: 8px; align-items: center; }
+        .app-header .header-actions button {
+            width: 40px; height: 40px; border: none; border-radius: 50%;
+            background: var(--bg-card); color: var(--text-secondary); font-size: 18px;
+            cursor: pointer; transition: var(--transition); box-shadow: var(--shadow-sm);
+            display: flex; align-items: center; justify-content: center;
+        }
 
-  /* Loading */
-  #loading { text-align:center; padding:60px; color:#94a3b8; }
-  #loading i { font-size:48px; color:#6c5ce7; margin-bottom:16px; }
+        .page { display: none; animation: fadeSlideIn 0.4s ease; }
+        .page.active { display: block; }
 
-  @media (max-width:640px) {
-    .media-grid { grid-template-columns:1fr; }
-    .media-item img, .media-item video { height:240px; }
-  }
-</style>
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: var(--bg-card); border-radius: var(--radius-md); padding: 20px;
+            margin-bottom: 16px; border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm); transition: var(--transition);
+        }
+        .card.gold-gradient {
+            background: linear-gradient(135deg, #f9a825, #f57f17);
+            border: none; color: var(--text-white);
+        }
+        .card.gold-gradient .text-muted { color: rgba(255, 255, 255, 0.8); }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; padding: 14px 24px; border: none; border-radius: var(--radius-sm);
+            font-size: 16px; font-weight: 700; cursor: pointer; transition: var(--transition);
+            text-decoration: none; width: 100%; font-family: inherit;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-primary { background: var(--accent-gradient); color: white; box-shadow: var(--shadow-glow); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text-primary); }
+        .btn-sm { padding: 10px 16px; font-size: 14px; }
+
+        .bottom-nav {
+            position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+            width: calc(100% - 32px); max-width: 440px; background: var(--bg-nav);
+            display: flex; justify-content: space-around; padding: 12px 6px;
+            border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border); z-index: 1000;
+            backdrop-filter: blur(20px); gap: 8px; min-height: 72px;
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center;
+            color: var(--text-muted); font-size: 13px; padding: 6px 8px;
+            border-radius: var(--radius-sm); cursor: pointer; background: none;
+            border: none; font-family: inherit; font-weight: 600; flex: 1;
+            position: relative;
+        }
+        .nav-item i { font-size: 24px; margin-bottom: 2px; }
+        .nav-item.active { color: var(--accent); }
+        .nav-item.active::before {
+            content: ''; position: absolute; top: -6px; left: 50%;
+            transform: translateX(-50%); width: 22px; height: 4px;
+            background: var(--accent); border-radius: 10px;
+        }
+
+        .input-group { margin-bottom: 16px; }
+        .input-group label {
+            display: block; color: var(--text-secondary); font-size: 14px;
+            margin-bottom: 6px; font-weight: 600;
+        }
+        .input-group input, .input-group select {
+            width: 100%; padding: 14px 16px; background: var(--bg-input);
+            border: 2px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text-primary); font-size: 16px;
+            font-family: inherit; font-weight: 500;
+        }
+        .input-group input:focus { outline: none; border-color: var(--accent); }
+
+        .profile-tab-btn {
+            background: transparent; border: none; padding: 10px 16px;
+            font-size: 14px; font-weight: 700; color: var(--text-secondary);
+            border-radius: var(--radius-sm); cursor: pointer;
+            font-family: inherit; display: flex; align-items: center;
+            gap: 8px; flex: 1; justify-content: center;
+        }
+        .profile-tab-btn.active {
+            background: var(--accent-gradient); color: white;
+        }
+        .profile-tab-panel { display: none; }
+        .profile-tab-panel.active { display: block; }
+
+        .pricing-widget { max-width: 650px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.2rem; }
+
+        .pricing-widget .pc-card {
+            background: var(--bg-card); border-radius: 20px; overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--border);
+        }
+        .pricing-widget .pc-stripe { height: 6px; width: 100%; }
+        .pricing-widget .pc-body { padding: 1.2rem 1.5rem 1.5rem 1.5rem; }
+        .pricing-widget .pc-top {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;
+        }
+        .pricing-widget .pc-name-badge { display: flex; align-items: center; gap: 0.6rem; }
+        .pricing-widget .pc-name-badge i { font-size: 1.4rem; }
+        .pricing-widget .pc-name-badge h3 {
+            font-size: 1.15rem; font-weight: 800; margin: 0;
+            color: var(--text-primary);
+        }
+        .pricing-widget .pc-price {
+            font-size: 1.8rem; font-weight: 800; color: var(--text-primary);
+        }
+        .pricing-widget .pc-price small { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
+        .pricing-widget .pc-features {
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 0.4rem 0.8rem; background: var(--bg-input);
+            padding: 0.7rem 0.9rem; border-radius: 14px; margin: 0.6rem 0 1rem 0;
+        }
+        .pricing-widget .pc-features span {
+            font-size: 0.78rem; color: var(--text-primary);
+            display: flex; align-items: center; gap: 0.4rem;
+        }
+        .pricing-widget .pc-btn {
+            width: 100%; padding: 0.6rem 0; border: none; border-radius: 60px;
+            font-family: inherit; font-weight: 700; font-size: 0.9rem;
+            color: #fff; cursor: pointer; display: flex; justify-content: center;
+            align-items: center; gap: 0.4rem;
+        }
+
+        .pc-starter .pc-stripe { background: #22c55e; }
+        .pc-starter .pc-name-badge i { color: #22c55e; }
+        .pc-starter .pc-name-badge h3 { color: #15803d; }
+        .pc-starter .pc-btn { background: #22c55e; }
+
+        .pc-basic .pc-stripe { background: #3b82f6; }
+        .pc-basic .pc-name-badge i { color: #3b82f6; }
+        .pc-basic .pc-name-badge h3 { color: #2563eb; }
+        .pc-basic .pc-btn { background: #3b82f6; }
+
+        .pc-advanced .pc-stripe { background: #a855f7; }
+        .pc-advanced .pc-name-badge i { color: #a855f7; }
+        .pc-advanced .pc-name-badge h3 { color: #7e22ce; }
+        .pc-advanced .pc-btn { background: #a855f7; }
+
+        .pc-premium .pc-stripe { background: #f59e0b; }
+        .pc-premium .pc-name-badge i { color: #f59e0b; }
+        .pc-premium .pc-name-badge h3 { color: #b45309; }
+        .pc-premium .pc-btn { background: #f59e0b; }
+
+        .pc-pro .pc-stripe { background: #f43f5e; }
+        .pc-pro .pc-name-badge i { color: #f43f5e; }
+        .pc-pro .pc-name-badge h3 { color: #be123c; }
+        .pc-pro .pc-btn { background: #f43f5e; }
+
+        .pc-verification .pc-stripe {
+            background: linear-gradient(90deg, #2563eb, #7c3aed, #2563eb);
+            background-size: 200% 100%;
+        }
+        .pc-verification .pc-name-badge i { color: #2563eb; }
+        .pc-verification .pc-name-badge h3 { color: #1e40af; }
+        .pc-verification .pc-price { color: #1e40af; }
+        .pc-verification .pc-btn { background: linear-gradient(135deg, #2563eb, #7c3aed); }
+        .pc-verification .pc-note {
+            font-size: 0.7rem; color: var(--text-muted);
+            text-align: center; margin-top: 0.8rem;
+        }
+
+        .pc-kyc .pc-stripe {
+            background: linear-gradient(90deg, #059669, #10b981, #059669);
+            background-size: 200% 100%;
+        }
+        .pc-kyc .pc-name-badge i { color: #059669; }
+        .pc-kyc .pc-name-badge h3 { color: #065f46; }
+        .pc-kyc .pc-price { color: #065f46; }
+        .pc-kyc .pc-btn {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: #fff; margin-top: 4px;
+        }
+        .pc-kyc .pc-note {
+            font-size: 0.7rem; color: var(--text-muted);
+            text-align: center; margin-top: 0.8rem;
+        }
+
+        .kyc-form { margin: 0.8rem 0 1rem 0; }
+        .kyc-input-group { margin-bottom: 10px; }
+        .kyc-input-group label {
+            display: block; font-size: 0.75rem; font-weight: 700;
+            color: var(--text-secondary); margin-bottom: 5px;
+        }
+        .kyc-input-group input {
+            width: 100%; padding: 10px 12px; background: var(--bg-input);
+            border: 1.5px solid var(--border); border-radius: 10px;
+            color: var(--text-primary); font-size: 13px; font-weight: 600;
+            font-family: inherit; outline: none;
+        }
+        .kyc-input-group input:focus {
+            border-color: #059669;
+            box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.12);
+        }
+
+        .kyc-upload { margin-bottom: 12px; }
+        .kyc-upload > label {
+            display: block; font-size: 0.75rem; font-weight: 700;
+            color: var(--text-secondary); margin-bottom: 5px;
+        }
+        .kyc-upload-box {
+            position: relative; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 6px;
+            background: var(--bg-input); border: 2px dashed var(--border);
+            border-radius: 14px; padding: 20px 12px; text-align: center;
+            cursor: pointer; overflow: hidden; min-height: 100px;
+        }
+        .kyc-upload-box:hover { border-color: #059669; }
+        .kyc-upload-box i { font-size: 1.6rem; color: #059669; }
+        .kyc-upload-box span { font-size: 0.72rem; font-weight: 600; color: var(--text-secondary); }
+        .kyc-upload-box.has-file {
+            padding: 0; border-style: solid; border-color: #059669; background: #000;
+        }
+        .kyc-upload-box.has-file i,
+        .kyc-upload-box.has-file span { display: none; }
+        .kyc-upload-box img,
+        .kyc-upload-box video {
+            width: 100%; max-height: 200px; object-fit: contain;
+            display: block; border-radius: 12px;
+        }
+        .kyc-upload-box .kyc-remove-btn {
+            position: absolute; top: 6px; left: 6px; width: 28px; height: 28px;
+            border-radius: 50%; background: var(--danger); color: white;
+            border: 2px solid white; font-size: 12px; cursor: pointer;
+            display: none; align-items: center; justify-content: center;
+            z-index: 2;
+        }
+        .kyc-upload-box.has-file .kyc-remove-btn { display: flex; }
+
+        .kyc-status-badge {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px; border-radius: 12px;
+            font-size: 0.78rem; font-weight: 700; margin: 0 0 12px 0;
+        }
+        .kyc-status-badge.pending {
+            background: rgba(251, 191, 36, 0.15); color: #b45309;
+            border: 1px solid rgba(251, 191, 36, 0.4);
+        }
+        .kyc-status-badge.approved {
+            background: rgba(16, 185, 129, 0.12); color: #047857;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        .kyc-status-badge.rejected {
+            background: rgba(225, 112, 85, 0.12); color: #b91c1c;
+            border: 1px solid rgba(225, 112, 85, 0.4);
+        }
+
+        .kyc-progress {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.72rem; color: var(--text-muted);
+            justify-content: center; margin-top: 8px;
+        }
+        .kyc-progress .loader-sm {
+            width: 14px; height: 14px; border: 2px solid var(--border);
+            border-top-color: #059669; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px); z-index: 2000; display: none;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-card {
+            background: var(--bg-card); border-radius: var(--radius-lg);
+            max-width: 400px; width: 100%; padding: 20px 18px;
+            max-height: 90vh; overflow-y: auto; position: relative;
+        }
+        .modal-card .modal-header {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 12px;
+        }
+        .modal-card .modal-header h3 { font-size: 20px; font-weight: 900; }
+        .modal-card .modal-header .close-modal {
+            background: none; border: none; font-size: 24px;
+            color: var(--text-muted); cursor: pointer;
+        }
+
+        .list-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 0; border-bottom: 1px solid var(--border-light);
+        }
+        .list-item:last-child { border-bottom: none; }
+
+        .status {
+            display: inline-block; padding: 4px 14px; border-radius: 20px;
+            font-size: 12px; font-weight: 700;
+        }
+        .status-success { background: var(--success-light); color: var(--success); }
+        .status-pending { background: var(--warning-light); color: #b7950b; }
+        .status-danger { background: var(--danger-light); color: var(--danger); }
+        .status-info { background: var(--info-light); color: var(--info); }
+
+        .balance-combined {
+            background: rgba(255, 255, 255, 0.92); border-radius: var(--radius-md);
+            padding: 10px 12px; margin-bottom: 16px; border: 1px solid var(--border);
+            display: grid; grid-template-columns: 1fr 1fr; align-items: center;
+            text-align: center; position: sticky; top: 0; z-index: 100;
+        }
+        .balance-combined .col { padding: 4px 6px; }
+        .balance-combined .col .label {
+            font-size: 10px; font-weight: 600; color: var(--text-secondary);
+        }
+        .balance-combined .col .amount { font-size: 20px; font-weight: 900; line-height: 1.2; }
+        .balance-combined .col .amount.dzd { color: var(--dzd-color); }
+        .balance-combined .col .amount.usdt { color: var(--usdt-color); }
+        .balance-combined .col .currency { font-size: 11px; color: var(--text-secondary); }
+
+        .zakat-box {
+            background: #ffffff; border-radius: 28px;
+            padding: 1.8rem 1.8rem 1.5rem;
+            box-shadow: 0 12px 40px rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+            margin-bottom: 16px;
+        }
+        .zakat-box .zb-header {
+            display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.2rem;
+        }
+        .zakat-box .zb-header i {
+            font-size: 1.8rem; color: #10b981;
+            background: #ecfdf5; padding: 0.5rem; border-radius: 14px;
+        }
+        .zakat-box .zb-header h3 { font-size: 1.4rem; font-weight: 800; color: #064e3b; flex: 1; }
+        .zakat-box .zb-badge {
+            background: #d1fae5; color: #065f46; font-size: 0.65rem;
+            font-weight: 700; padding: 0.2rem 0.9rem; border-radius: 60px;
+        }
+        .zakat-box .zb-stats-main {
+            display: grid; grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.6rem; margin-bottom: 1.2rem;
+        }
+        .zakat-box .zb-stat-main-item {
+            background: #f9fafb; padding: 0.7rem 0.4rem;
+            border-radius: 16px; text-align: center;
+            border: 1px solid #f3f4f6;
+        }
+        .zakat-box .zb-stat-main-item i {
+            display: block; font-size: 1.1rem; color: #10b981; margin-bottom: 0.2rem;
+        }
+        .zakat-box .zb-stat-main-item span {
+            display: block; font-size: 0.65rem; color: #6b7280;
+            font-weight: 500; margin-bottom: 0.1rem;
+        }
+        .zakat-box .zb-stat-main-item strong {
+            display: block; font-size: 1.1rem; color: #064e3b; font-weight: 800;
+        }
+        .zakat-box .zb-btn {
+            width: 100%; padding: 0.75rem 0; border: none;
+            border-radius: 60px; font-family: inherit; font-weight: 700;
+            font-size: 1rem; color: #fff;
+            background: linear-gradient(135deg, #10b981, #059669);
+            cursor: pointer; display: flex; justify-content: center;
+            align-items: center; gap: 0.6rem;
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.30);
+        }
+
+        .text-center { text-align: center; }
+        .text-muted { color: var(--text-secondary); }
+        .mt-16 { margin-top: 16px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+
+        .back-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: none; border: none; color: var(--accent);
+            font-weight: 700; font-size: 14px; cursor: pointer;
+            padding: 4px 8px; margin-right: auto;
+        }
+
+        .restricted-warning {
+            display: none; background: var(--danger-light);
+            border: 2px solid var(--danger); border-radius: var(--radius-sm);
+            padding: 12px 16px; margin-bottom: 16px; color: var(--danger);
+            font-weight: 700; align-items: center; gap: 10px; font-size: 14px;
+        }
+
+        .amount-input-wrapper {
+            display: flex; align-items: center; gap: 6px;
+            background: var(--bg-input); border-radius: var(--radius-sm);
+            border: 2px solid var(--border); padding: 2px;
+        }
+        .amount-input-wrapper button {
+            width: 36px; height: 36px; border: none;
+            border-radius: var(--radius-sm); background: var(--bg-card);
+            color: var(--text-primary); font-size: 18px; font-weight: 700;
+            cursor: pointer;
+        }
+        .amount-input-wrapper input {
+            flex: 1; border: none; background: transparent;
+            padding: 6px 2px; font-size: 18px; font-weight: 800;
+            text-align: center; outline: none; min-width: 50px;
+        }
+
+        .plan-card {
+            background: var(--bg-card); border-radius: var(--radius-md);
+            padding: 24px 20px; border: 2px solid var(--border);
+            margin-bottom: 16px; position: relative;
+        }
+        .plan-card.popular {
+            border-color: var(--gold); background: rgba(249, 168, 37, 0.05);
+        }
+        .plan-card .badge-popular {
+            position: absolute; top: 12px; right: 12px;
+            background: var(--gold); color: white; padding: 4px 14px;
+            border-radius: 20px; font-size: 11px; font-weight: 700;
+        }
+        .plan-card .name { font-size: 20px; font-weight: 800; text-align: center; }
+        .plan-card .return {
+            text-align: center; font-size: 28px; font-weight: 900;
+            color: var(--accent); margin: 8px 0;
+        }
+        .plan-card .return.dzd-return { color: var(--dzd-color); }
+        .plan-card .return small { font-size: 14px; font-weight: 600; }
+        .plan-card .features {
+            list-style: none; padding: 0; margin: 12px 0 16px;
+        }
+        .plan-card .features li {
+            padding: 6px 0; color: var(--text-secondary);
+            font-size: 14px; display: flex; align-items: center; gap: 10px;
+        }
+        .plan-card .features li i { color: var(--success); width: 20px; text-align: center; }
+
+        .invest-stat {
+            background: rgba(249, 168, 37, 0.08);
+            border: 1px solid rgba(249, 168, 37, 0.2);
+            border-radius: var(--radius-sm); padding: 12px; text-align: center;
+        }
+        .invest-stat .number { font-size: 20px; font-weight: 800; color: var(--gold); }
+        .invest-stat .label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+        .swap-card {
+            background: var(--bg-card); border-radius: var(--radius-md);
+            padding: 20px; border: 1px solid var(--border);
+        }
+        .swap-direction {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; background: var(--bg-input); padding: 8px 12px;
+            border-radius: var(--radius-sm); margin-bottom: 12px;
+        }
+        .swap-direction .dir-label { font-weight: 700; font-size: 14px; color: var(--text-secondary); }
+        .swap-direction .dir-badge {
+            padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 13px;
+        }
+        .swap-direction .dir-badge.dzd { background: var(--dzd-light); color: var(--dzd-color); }
+        .swap-direction .dir-badge.usdt { background: rgba(38, 161, 123, 0.12); color: var(--usdt-color); }
+        .swap-amount { display: flex; gap: 8px; margin-bottom: 12px; }
+        .swap-amount input {
+            flex: 1; padding: 12px 14px; background: var(--bg-input);
+            border: 2px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text-primary); font-size: 18px; font-weight: 700;
+            font-family: inherit; outline: none;
+        }
+        .swap-result {
+            background: var(--bg-input); border-radius: var(--radius-sm);
+            padding: 12px 16px; margin-bottom: 16px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .swap-result .label { font-weight: 600; color: var(--text-secondary); font-size: 14px; }
+        .swap-result .value { font-weight: 800; font-size: 18px; }
+        .swap-result .value.usdt-color { color: var(--usdt-color); }
+        .swap-result .value.dzd-color { color: var(--dzd-color); }
+        .btn-usdt { background: linear-gradient(135deg, #26a17b, #1f8b6b); color: white; }
+
+        .stats-bar {
+            display: flex; justify-content: space-around; align-items: center;
+            background: var(--bg-card); border-radius: var(--radius-md);
+            padding: 16px 12px; margin-bottom: 16px;
+            border: 1px solid var(--border);
+        }
+        .stats-bar .stat-item { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; }
+        .stats-bar .stat-item .stat-label { font-size: 14px; color: var(--text-secondary); font-weight: 600; }
+        .stats-bar .stat-item .stat-value { font-size: 20px; font-weight: 900; }
+
+        .copy-btn {
+            background: var(--accent); color: white; border: none;
+            padding: 6px 14px; border-radius: var(--radius-sm);
+            font-size: 13px; font-weight: 600; cursor: pointer;
+            font-family: inherit; display: inline-flex; align-items: center;
+            gap: 6px; flex-shrink: 0;
+        }
+        .copy-btn.copied { background: var(--success); }
+
+        .deposit-method-select, .withdraw-method-select {
+            width: 100%; padding: 12px 16px; background: var(--bg-input);
+            border: 2px solid var(--border); border-radius: var(--radius-sm);
+            color: var(--text-primary); font-size: 16px; font-weight: 600;
+            font-family: inherit; cursor: pointer; appearance: none;
+        }
+        .deposit-method-select:focus, .withdraw-method-select:focus {
+            outline: none; border-color: var(--accent);
+        }
+
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+        #bannedOverlay {
+            display: none; position: fixed; inset: 0; background: var(--bg-primary);
+            z-index: 9999; justify-content: center; align-items: center; padding: 20px;
+            direction: rtl;
+        }
+        #bannedOverlay .banned-card {
+            max-width: 420px; width: 100%; background: var(--bg-card);
+            border-radius: var(--radius-lg); padding: 40px 28px 32px;
+            box-shadow: var(--shadow-lg); text-align: center;
+        }
+        #bannedOverlay .banned-icon { font-size: 64px; color: var(--danger); margin-bottom: 16px; }
+        #bannedOverlay h2 { font-size: 24px; font-weight: 900; margin-bottom: 8px; }
+        #bannedOverlay .banned-reason {
+            font-size: 16px; font-weight: 600; color: var(--danger);
+            background: var(--danger-light); padding: 8px 16px;
+            border-radius: var(--radius-sm); display: inline-block; margin-bottom: 16px;
+        }
+        #bannedOverlay p { font-size: 15px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 24px; }
+        #bannedOverlay .btn-support {
+            background: var(--accent-gradient); color: white; border: none;
+            padding: 14px 32px; border-radius: var(--radius-sm);
+            font-weight: 700; font-size: 16px; cursor: pointer; width: 100%;
+            font-family: inherit;
+        }
+
+        @media (max-width: 420px) {
+            .balance-combined .col .amount { font-size: 18px; }
+            .kyc-input-group input { padding: 9px 11px; font-size: 12px; }
+            .kyc-upload-box { min-height: 90px; padding: 16px 10px; }
+            .kyc-upload-box img, .kyc-upload-box video { max-height: 160px; }
+            .pricing-widget .pc-body { padding: 1rem; }
+            .pricing-widget .pc-price { font-size: 1.5rem; }
+        }
+    </style>
 </head>
 <body>
 
-<div class="container">
-  <div class="header">
-    <h1><i class="fas fa-shield-alt"></i> طلبات التحقق من الهوية</h1>
-    <button onclick="loadRequests()"><i class="fas fa-sync"></i> تحديث</button>
-  </div>
-
-  <div class="stats">
-    <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">إجمالي الطلبات</div></div>
-    <div class="stat"><div class="num" id="statPending" style="color:#fbbf24;">0</div><div class="lbl">قيد المراجعة</div></div>
-    <div class="stat"><div class="num" id="statApproved" style="color:#22c55e;">0</div><div class="lbl">موافق عليها</div></div>
-    <div class="stat"><div class="num" id="statRejected" style="color:#ef4444;">0</div><div class="lbl">مرفوضة</div></div>
-  </div>
-
-  <div id="loading">
-    <i class="fas fa-spinner fa-spin"></i>
-    <div>جاري التحميل...</div>
-  </div>
-
-  <div id="list"></div>
-</div>
-
-<!-- Image Modal -->
-<div id="imageModal" onclick="closeImageModal()">
-  <img id="modalImg" style="display:none;" />
-  <video id="modalVideo" style="display:none;" controls autoplay></video>
-</div>
-
-<!-- Reject Modal -->
-<div id="rejectModal">
-  <div class="box">
-    <h3><i class="fas fa-times-circle"></i> سبب الرفض</h3>
-    <textarea id="rejectReason" placeholder="مثال: صورة البطاقة غير واضحة..."></textarea>
-    <div class="row">
-      <button class="cancel" onclick="closeRejectModal()">إلغاء</button>
-      <button class="confirm" onclick="confirmReject()">تأكيد الرفض</button>
+    <div id="bannedOverlay">
+        <div class="banned-card">
+            <div class="banned-icon"><i class="fas fa-ban"></i></div>
+            <h2>🔒 تم حظر حسابك</h2>
+            <div class="banned-reason" id="bannedReasonText">مخالفة قوانين وشروط استخدام المنصة</div>
+            <p>تم حظر حسابك من طرف الإدارة. تواصل مع الدعم لمراجعة حالتك.</p>
+            <button class="btn-support" onclick="contactSupport()">
+                <i class="fas fa-headset"></i> تواصل مع الدعم
+            </button>
+        </div>
     </div>
-  </div>
-</div>
 
-<script>
-// ═══════════════════════════════════════════════════════════════
-// ⚠️⚠️⚠️  غيّر هذا الرابط إلى رابط خدمتك على Render  ⚠️⚠️⚠️
-// ═══════════════════════════════════════════════════════════════
-const API_BASE = 'https://crynovaverification.onrender.com';
-//                                 ↑↑↑
-//                    ضع رابط Render الفعلي هنا
-//                مثال: https://crynova-kyc.onrender.com
-//                مثال: https://my-kyc-bot.onrender.com
-// ═══════════════════════════════════════════════════════════════
-
-let currentRejectUserId = null;
-let refreshInterval = null;
-
-console.log('🌐 API_BASE:', API_BASE);
-
-// ============================================================
-// Load requests
-// ============================================================
-async function loadRequests() {
-  const list = document.getElementById('list');
-  try {
-    const res = await fetch(API_BASE + '/admin/api/requests', { cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    document.getElementById('loading').style.display = 'none';
-    renderList(data);
-  } catch (e) {
-    console.error('❌ loadRequests:', e);
-    document.getElementById('loading').innerHTML = `
-      <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
-      <div style="color:#ef4444;font-weight:700;margin-bottom:8px;">فشل الاتصال بالخادم</div>
-      <div style="font-size:13px;color:#94a3b8;margin-top:8px;direction:ltr;text-align:left;">
-        API: <code style="color:#fbbf24;word-break:break-all;">${API_BASE}</code><br>
-        خطأ: <code style="color:#fbbf24;">${e.message}</code>
-      </div>
-      <div style="margin-top:16px;padding:14px;background:#0f172a;border-radius:10px;text-align:right;font-size:13px;line-height:1.9;">
-        <div style="color:#94a3b8;margin-bottom:8px;">🔍 تحقق من:</div>
-        <div>1. هل رابط Render صحيح؟ افتحه مباشرة في المتصفح</div>
-        <div>2. هل خدمة Render تعمل؟ (Dashboard → Logs)</div>
-        <div>3. هل الرابط موجود في أعلى ملف admin.html؟</div>
-      </div>
-      <button onclick="loadRequests()" style="margin-top:16px;padding:10px 20px;border-radius:10px;
-        border:none;background:#6c5ce7;color:white;font-weight:700;cursor:pointer;font-family:inherit;">
-        <i class="fas fa-redo"></i> إعادة المحاولة
-      </button>
-    `;
-  }
-}
-
-function renderList(list) {
-  document.getElementById('statTotal').textContent = list.length;
-  document.getElementById('statPending').textContent = list.filter(r => r.status === 'pending').length;
-  document.getElementById('statApproved').textContent = list.filter(r => r.status === 'approved').length;
-  document.getElementById('statRejected').textContent = list.filter(r => r.status === 'rejected').length;
-
-  const container = document.getElementById('list');
-  if (!list.length) {
-    container.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><div>لا توجد طلبات</div></div>';
-    return;
-  }
-
-  container.innerHTML = list.map(r => {
-    const submitted = r.submittedAt
-      ? new Date(r.submittedAt._seconds ? r.submittedAt._seconds * 1000 : r.submittedAt).toLocaleString('ar-DZ')
-      : '—';
-    const badgeClass = r.status === 'approved' ? 'approved' : r.status === 'rejected' ? 'rejected' : 'pending';
-    const badgeText = r.status === 'approved' ? '✅ موافق عليه' : r.status === 'rejected' ? '❌ مرفوض' : '⏳ قيد المراجعة';
-    const isPending = r.status === 'pending';
-
-    return `
-      <div class="card">
-        <div class="card-header">
-          <div>
-            <div class="user-name">${r.fullName || 'بدون اسم'}</div>
-            <div class="user-meta">
-              <i class="fas fa-calendar"></i> ${r.birthDate || '—'} • 
-              <i class="fas fa-id-badge"></i> ${r.userId} 
-              ${r.username ? ' • @' + r.username : ''}
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo"><i class="fas fa-gem"></i> Crynova</div>
+            <div class="header-actions">
+                <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" onclick="navigateTo('profile')">
+                    <div style="position:relative;">
+                        <div style="width:32px;height:32px;border-radius:50%;background:var(--accent-gradient);display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:14px;" id="headerAvatar">?</div>
+                        <div id="headerVerifiedBadge" style="display:none; position:absolute; bottom:-2px; right:-2px; background:#1d9bf0; border:2px solid white; border-radius:50%; width:16px; height:16px; align-items:center; justify-content:center;">
+                            <i class="fas fa-check" style="color:white; font-size:8px;"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:13px;font-weight:600;" id="headerUserName">مستخدم</div>
+                        <div style="font-size:10px;color:var(--text-secondary);" id="headerUserLevel">المستوى 1</div>
+                    </div>
+                </div>
+                <button onclick="toggleTheme()" id="themeToggle"><i class="fas fa-moon"></i></button>
             </div>
-            <div class="user-meta" style="margin-top:4px;">
-              <i class="fas fa-clock"></i> ${submitted}
+        </header>
+
+        <!-- HOME -->
+        <div class="page active" id="page-home">
+            <div class="balance-combined">
+                <div class="col">
+                    <div class="label">الرصيد الكلي (DZD)</div>
+                    <div class="amount dzd" id="homeBalance">0.00</div>
+                    <div class="currency">DZD</div>
+                </div>
+                <div class="col">
+                    <div class="label">رصيد USDT</div>
+                    <div class="amount usdt" id="homeUsdt">0.00</div>
+                    <div class="currency">USDT</div>
+                </div>
             </div>
-          </div>
-          <span class="badge ${badgeClass}">${badgeText}</span>
+
+            <div style="display:flex;gap:12px;margin-bottom:16px;">
+                <button class="btn btn-success" style="flex:1;" onclick="navigateTo('deposit')">
+                    <i class="fas fa-arrow-down"></i> إيداع
+                </button>
+                <button class="btn btn-danger" style="flex:1;" onclick="navigateTo('withdraw')">
+                    <i class="fas fa-arrow-up"></i> سحب
+                </button>
+            </div>
+
+            <div class="zakat-box">
+                <div class="zb-header">
+                    <i class="fas fa-hand-holding-heart"></i>
+                    <h3>صندوق الزكاة</h3>
+                    <span class="zb-badge">نشط</span>
+                </div>
+                <div class="zb-stats-main">
+                    <div class="zb-stat-main-item">
+                        <i class="fas fa-coins"></i>
+                        <span>إجمالي التبرعات</span>
+                        <strong id="zakatTotalDonations">0</strong>
+                    </div>
+                    <div class="zb-stat-main-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span>تم توزيعها</span>
+                        <strong id="zakatDistributed">0</strong>
+                    </div>
+                    <div class="zb-stat-main-item">
+                        <i class="fas fa-clock"></i>
+                        <span>المتبقي</span>
+                        <strong id="zakatRemaining">0</strong>
+                    </div>
+                </div>
+                <button class="zb-btn" onclick="openDonationModal()">
+                    <i class="fas fa-hand-holding-usd"></i> تبرع الآن
+                </button>
+            </div>
         </div>
 
-        <div class="media-grid">
-          <div class="media-item" onclick="showImage('${API_BASE}${r.frontUrl}', 'image')">
-            <span class="label">📸 أمامي</span>
-            <img src="${API_BASE}${r.frontUrl}" alt="front" loading="lazy" />
-          </div>
-          <div class="media-item" onclick="showImage('${API_BASE}${r.backUrl}', 'image')">
-            <span class="label">📸 خلفي</span>
-            <img src="${API_BASE}${r.backUrl}" alt="back" loading="lazy" />
-          </div>
-          <div class="media-item" onclick="showImage('${API_BASE}${r.videoUrl}', 'video')">
-            <span class="label">🎥 فيديو</span>
-            <video src="${API_BASE}${r.videoUrl}" preload="metadata"></video>
-          </div>
+        <!-- PACKAGES / SWAP -->
+        <div class="page" id="page-packages">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px;">
+                <i class="fas fa-exchange-alt text-accent"></i> تبادل العملات
+            </h2>
+            <div class="balance-combined">
+                <div class="col">
+                    <div class="label">رصيد DZD</div>
+                    <div class="amount dzd" id="swapDzdBalance">0.00</div>
+                    <div class="currency">DZD</div>
+                </div>
+                <div class="col">
+                    <div class="label">رصيد USDT</div>
+                    <div class="amount usdt" id="swapUsdtBalance">0.00</div>
+                    <div class="currency">USDT</div>
+                </div>
+            </div>
+            <div class="swap-card">
+                <div class="swap-direction">
+                    <span class="dir-label">من</span>
+                    <span class="dir-badge dzd" id="swapFromLabel">DZD</span>
+                    <button class="dir-switch-btn" onclick="toggleSwapDirection()" style="background:none;border:none;color:var(--accent);font-size:20px;cursor:pointer;">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <span class="dir-badge usdt" id="swapToLabel">USDT</span>
+                    <span class="dir-label">إلى</span>
+                </div>
+                <div class="swap-amount">
+                    <input type="number" id="swapAmountInput" placeholder="أدخل المبلغ" min="0" step="1" value="100">
+                </div>
+                <div class="swap-result">
+                    <span class="label">ستحصل على:</span>
+                    <span class="value usdt-color" id="swapResultValue">0.3802 USDT</span>
+                </div>
+                <button class="btn btn-usdt" onclick="executeSwap()">
+                    <i class="fas fa-exchange-alt"></i> تبادل
+                </button>
+            </div>
         </div>
 
-        ${isPending ? `
-          <div class="actions">
-            <button class="btn-approve" onclick="approve('${r.userId}', this)">
-              <i class="fas fa-check"></i> موافقة
-            </button>
-            <button class="btn-reject" onclick="openRejectModal('${r.userId}')">
-              <i class="fas fa-times"></i> رفض
-            </button>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  }).join('');
-}
+        <!-- INVESTMENTS -->
+        <div class="page" id="page-investments">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px;">
+                <i class="fas fa-chart-line"></i> استثماراتي
+            </h2>
+            <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:8px;">
+                <button class="profile-tab-btn active" onclick="switchInvestTab('invest-plans')">
+                    <i class="fas fa-cubes"></i> الباقات
+                </button>
+                <button class="profile-tab-btn" onclick="switchInvestTab('my-investments')">
+                    <i class="fas fa-folder-open"></i> استثماراتي
+                </button>
+            </div>
+            <div class="invest-tab-panel active" id="panel-invest-plans">
+                <div id="investPlansListInside"></div>
+            </div>
+            <div class="invest-tab-panel" id="panel-my-investments">
+                <div class="card gold-gradient">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.8);">إجمالي المستثمر (DZD)</div>
+                            <div style="font-size:24px;font-weight:900;color:white;" id="investTotalInvestedDZD">0.00</div>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.8);">إجمالي الأرباح (DZD)</div>
+                            <div style="font-size:24px;font-weight:900;color:white;" id="investTotalReturnDZD">0.00</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="activeInvestments">
+                    <div class="text-muted text-center" style="padding:30px 0;">ليس لديك استثمارات نشطة</div>
+                </div>
+            </div>
+        </div>
 
-// ============================================================
-// Approve / Reject
-// ============================================================
-async function approve(userId, btn) {
-  if (!confirm(`تأكيد الموافقة على المستخدم ${userId}؟`)) return;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري...';
-  try {
-    const res = await fetch(API_BASE + `/admin/api/approve/${userId}`, { method: 'POST' });
-    if (res.ok) {
-      alert('✅ تمت الموافقة');
-      loadRequests();
-    } else {
-      alert('❌ فشل');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-check"></i> موافقة';
-    }
-  } catch (e) {
-    alert('❌ خطأ في الاتصال');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-check"></i> موافقة';
-  }
-}
+        <!-- WALLET -->
+        <div class="page" id="page-wallet">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px;">
+                <i class="fas fa-wallet"></i> المحفظة
+            </h2>
+            <div class="balance-combined">
+                <div class="col">
+                    <div class="label">الرصيد الكلي (DZD)</div>
+                    <div class="amount dzd" id="walletTotal">0.00</div>
+                    <div class="currency">DZD</div>
+                </div>
+                <div class="col">
+                    <div class="label">رصيد USDT</div>
+                    <div class="amount usdt" id="walletUsdt">0.00</div>
+                    <div class="currency">USDT</div>
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="card" style="border-right:4px solid var(--success);">
+                    <div style="font-size:13px;color:var(--text-secondary);">الرئيسية</div>
+                    <div style="font-size:24px;font-weight:800;" id="walletMain">0.00</div>
+                </div>
+                <div class="card" style="border-right:4px solid var(--warning);">
+                    <div style="font-size:13px;color:var(--text-secondary);">المكافآت</div>
+                    <div style="font-size:24px;font-weight:800;" id="walletReward">0.00</div>
+                </div>
+                <div class="card" style="border-right:4px solid var(--accent);">
+                    <div style="font-size:13px;color:var(--text-secondary);">الإحالات</div>
+                    <div style="font-size:24px;font-weight:800;" id="walletReferral">0.00</div>
+                </div>
+                <div class="card" style="border-right:4px solid var(--danger);">
+                    <div style="font-size:13px;color:var(--text-secondary);">المجمد</div>
+                    <div style="font-size:24px;font-weight:800;" id="walletLocked">0.00</div>
+                </div>
+            </div>
+        </div>
 
-function openRejectModal(userId) {
-  currentRejectUserId = userId;
-  document.getElementById('rejectReason').value = '';
-  document.getElementById('rejectModal').classList.add('active');
-}
+        <!-- REFERRALS -->
+        <div class="page" id="page-referrals">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px;">
+                <i class="fas fa-users"></i> الإحالات
+            </h2>
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <span class="stat-label"><i class="fas fa-users"></i> الإحالات</span>
+                    <span class="stat-value" id="refTotalReferrals">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label"><i class="fas fa-coins"></i> العمولات</span>
+                    <span class="stat-value" id="refEarnings">0.00</span>
+                </div>
+            </div>
+            <div class="card">
+                <div style="font-size:14px;color:var(--text-secondary);margin-bottom:8px;">رابط الدعوة</div>
+                <div style="display:flex;gap:8px;">
+                    <input type="text" id="referralLink" readonly style="flex:1;padding:12px;background:var(--bg-input);border:2px solid var(--border);border-radius:var(--radius-sm);">
+                    <button class="btn btn-primary btn-sm" style="width:auto;padding:12px 16px;" onclick="copyText(document.getElementById('referralLink').value)">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
 
-function closeRejectModal() {
-  document.getElementById('rejectModal').classList.remove('active');
-  currentRejectUserId = null;
-}
+        <!-- DEPOSIT -->
+        <div class="page" id="page-deposit">
+            <h2 style="font-size:20px;font-weight:900;margin-bottom:12px;">
+                <i class="fas fa-arrow-down" style="color:var(--success);"></i> الإيداع
+                <button class="back-btn" onclick="navigateTo('home')">
+                    <i class="fas fa-arrow-right"></i> رجوع
+                </button>
+            </h2>
+            <div id="depositRestrictedWarning" class="restricted-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>حسابك مقيد</span>
+            </div>
+            <div class="input-group">
+                <label>طريقة الإيداع</label>
+                <select id="depositMethodSelect" class="deposit-method-select" onchange="updateDepositForm(this.value)">
+                    <option value="baridi">BaridiMob</option>
+                    <option value="binance">Binance</option>
+                    <option value="redotpay">RedotPay</option>
+                </select>
+            </div>
+            <div class="card">
+                <div class="input-group">
+                    <label id="depositAccountLabel">رقم الحساب</label>
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" id="depositAccountInput" readonly value="00799999002385412178" style="flex:1;">
+                        <button class="copy-btn" onclick="copyDepositAccount(event)">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label id="depositAmountLabel">المبلغ</label>
+                    <input type="number" id="depositAmount" placeholder="أدخل المبلغ" min="2000" step="100">
+                </div>
+                <div class="input-group">
+                    <label id="depositTxLabel">رقم العملية</label>
+                    <input type="text" id="depositTransactionId" placeholder="أدخل رقم العملية">
+                </div>
+                <button class="btn btn-success" onclick="submitDeposit()">
+                    <i class="fas fa-check-circle"></i> تأكيد الإيداع
+                </button>
+            </div>
+            <div class="card">
+                <div style="font-weight:700;margin-bottom:10px;"><i class="fas fa-history"></i> طلبات الإيداع</div>
+                <div id="depositRequests">
+                    <div class="text-muted text-center" style="padding:12px 0;">لا توجد طلبات</div>
+                </div>
+            </div>
+        </div>
 
-async function confirmReject() {
-  const reason = document.getElementById('rejectReason').value.trim();
-  if (!reason) { alert('⚠️ يرجى كتابة سبب الرفض'); return; }
-  const btn = document.querySelector('#rejectModal .confirm');
-  btn.disabled = true;
-  btn.textContent = 'جاري...';
-  try {
-    const res = await fetch(API_BASE + `/admin/api/reject/${currentRejectUserId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason })
-    });
-    if (res.ok) {
-      alert('✅ تم الرفض');
-      closeRejectModal();
-      loadRequests();
-    } else {
-      alert('❌ فشل');
-    }
-  } catch (e) {
-    alert('❌ خطأ في الاتصال');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'تأكيد الرفض';
-  }
-}
+        <!-- WITHDRAW -->
+        <div class="page" id="page-withdraw">
+            <h2 style="font-size:20px;font-weight:900;margin-bottom:12px;">
+                <i class="fas fa-arrow-up" style="color:var(--danger);"></i> السحب
+                <button class="back-btn" onclick="navigateTo('home')">
+                    <i class="fas fa-arrow-right"></i> رجوع
+                </button>
+            </h2>
+            <div id="withdrawRestrictedWarning" class="restricted-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>حسابك مقيد</span>
+            </div>
+            <div class="input-group">
+                <label>طريقة السحب</label>
+                <select id="withdrawMethodSelect" class="withdraw-method-select" onchange="updateWithdrawForm(this.value)">
+                    <option value="baridi">BaridiMob</option>
+                    <option value="binance">Binance</option>
+                    <option value="redotpay">RedotPay</option>
+                </select>
+            </div>
+            <div class="card" style="border:2px solid var(--warning);">
+                <div class="flex-between">
+                    <div>
+                        <div style="font-size:12px;color:var(--text-secondary);">الرصيد القابل للسحب</div>
+                        <div style="font-size:24px;font-weight:900;color:var(--accent);" id="withdrawableBalance">0.00</div>
+                    </div>
+                    <div>
+                        <div style="font-size:12px;color:var(--text-secondary);">الحد الأدنى</div>
+                        <div style="font-size:16px;font-weight:800;" id="withdrawMinAmount">1000 DZD</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="input-group">
+                    <label id="withdrawAccountLabel">معرف حسابك</label>
+                    <input type="text" id="withdrawAccountInput" placeholder="أدخل المعرف">
+                </div>
+                <div class="input-group">
+                    <label id="withdrawAmountLabel">المبلغ</label>
+                    <input type="number" id="withdrawAmount" placeholder="أدخل المبلغ" min="1000" step="100">
+                </div>
+                <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border);">
+                    <span id="feeLabel">الرسوم (10%)</span>
+                    <span id="withdrawFee" style="font-weight:700;">0.00</span>
+                </div>
+                <div class="flex-between" style="padding:8px 0;font-size:16px;font-weight:900;">
+                    <span>الإجمالي</span>
+                    <span id="withdrawTotal" style="color:var(--accent);">0.00</span>
+                </div>
+                <button class="btn btn-danger" onclick="submitWithdraw()">
+                    <i class="fas fa-paper-plane"></i> طلب السحب
+                </button>
+            </div>
+            <div class="card">
+                <div style="font-weight:700;margin-bottom:10px;"><i class="fas fa-history"></i> طلبات السحب</div>
+                <div id="withdrawRequests">
+                    <div class="text-muted text-center" style="padding:12px 0;">لا توجد طلبات</div>
+                </div>
+            </div>
+        </div>
 
-// ============================================================
-// Image preview
-// ============================================================
-function showImage(url, type) {
-  const modal = document.getElementById('imageModal');
-  const img = document.getElementById('modalImg');
-  const video = document.getElementById('modalVideo');
-  if (type === 'video') {
-    video.src = url;
-    video.style.display = 'block';
-    img.style.display = 'none';
-  } else {
-    img.src = url;
-    img.style.display = 'block';
-    video.style.display = 'none';
-    video.pause();
-  }
-  modal.classList.add('active');
-}
+        <!-- TRANSACTIONS -->
+        <div class="page" id="page-transactions">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px;">
+                <i class="fas fa-clock-rotate-left"></i> سجل العمليات
+                <button class="back-btn" onclick="navigateTo('home')">
+                    <i class="fas fa-arrow-right"></i> رجوع
+                </button>
+            </h2>
+            <div class="card">
+                <div id="transactionsList">
+                    <div class="text-muted text-center" style="padding:32px 0;">لا توجد عمليات</div>
+                </div>
+            </div>
+        </div>
 
-function closeImageModal() {
-  document.getElementById('imageModal').classList.remove('active');
-  const video = document.getElementById('modalVideo');
-  video.pause();
-  video.src = '';
-}
+        <!-- PROFILE -->
+        <div class="page" id="page-profile">
+            <h2 style="font-size:22px;font-weight:900;margin-bottom:16px;">
+                <i class="fas fa-user"></i> الحساب
+            </h2>
+            <div class="card text-center" style="padding:24px;">
+                <div style="position:relative; width:80px; height:80px; margin:0 auto 12px;">
+                    <div id="profileAvatar" style="width:80px;height:80px;border-radius:50%;background:var(--accent-gradient);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:white;">
+                        ?
+                    </div>
+                    <div id="profileVerifiedBadge" style="display:none; position:absolute; bottom:0; right:-4px; background:#1d9bf0; border:2px solid white; border-radius:50%; width:26px; height:26px; align-items:center; justify-content:center;">
+                        <i class="fas fa-check" style="color:white; font-size:14px;"></i>
+                    </div>
+                </div>
+                <div style="font-size:22px;font-weight:900;" id="profileName">المستخدم</div>
+                <div style="color:var(--text-secondary);font-size:14px;" id="profileTelegram">@username</div>
+                <div style="margin-top:8px;">
+                    <span class="status status-info">المستوى <span id="profileLevel">1</span></span>
+                    <span id="verificationStatus" style="margin-right:8px;"></span>
+                </div>
+            </div>
 
-// ============================================================
-// Boot
-// ============================================================
-loadRequests();
-refreshInterval = setInterval(loadRequests, 30000);
-</script>
+            <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border);padding-bottom:8px;">
+                <button class="profile-tab-btn active" onclick="switchProfileTab('profile')">
+                    <i class="fas fa-user"></i> الشخصي
+                </button>
+                <button class="profile-tab-btn" onclick="switchProfileTab('verification')">
+                    <i class="fas fa-shield-alt"></i> التوثيق
+                </button>
+                <button class="profile-tab-btn" onclick="switchProfileTab('subscription')">
+                    <i class="fas fa-crown"></i> الاشتراكات
+                </button>
+            </div>
+
+            <!-- PROFILE TAB -->
+            <div class="profile-tab-panel active" id="panel-profile">
+                <div class="card">
+                    <div class="list-item">
+                        <span><i class="fas fa-calendar"></i> تاريخ التسجيل</span>
+                        <span id="profileJoinDate">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VERIFICATION TAB -->
+            <div class="profile-tab-panel" id="panel-verification">
+                <div class="pricing-widget">
+                    <div class="pc-card pc-verification">
+                        <div class="pc-stripe"></div>
+                        <div class="pc-body">
+                            <div class="pc-top">
+                                <div class="pc-name-badge">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <h3>توثيق الحساب</h3>
+                                </div>
+                                <span class="pc-price">100 <small>دج</small></span>
+                            </div>
+                            <div class="pc-features">
+                                <span><i class="fas fa-check-circle"></i> شارة موثّقة زرقاء</span>
+                                <span><i class="fas fa-check-circle"></i> زيادة الثقة</span>
+                                <span><i class="fas fa-check-circle"></i> أولوية في الدعم</span>
+                                <span><i class="fas fa-check-circle"></i> حماية إضافية</span>
+                            </div>
+                            <button class="pc-btn" id="verificationActionBtn" onclick="requestVerification()">
+                                <i class="fas fa-badge-check"></i> وثّق حسابي الآن
+                            </button>
+                            <p class="pc-note">* اشتراك شهري</p>
+                        </div>
+                    </div>
+
+                    <!-- KYC CARD -->
+                    <div class="pc-card pc-kyc">
+                        <div class="pc-stripe"></div>
+                        <div class="pc-body">
+                            <div class="pc-top">
+                                <div class="pc-name-badge">
+                                    <i class="fas fa-id-card"></i>
+                                    <h3>التحقق من الهوية</h3>
+                                </div>
+                                <span class="pc-price" style="font-size:1rem;">مجاني</span>
+                            </div>
+                            <div class="pc-features">
+                                <span><i class="fas fa-check-circle"></i> توثيق كامل</span>
+                                <span><i class="fas fa-check-circle"></i> رفع حدود السحب</span>
+                                <span><i class="fas fa-check-circle"></i> شارة ذهبية</span>
+                                <span><i class="fas fa-check-circle"></i> أولوية في الدعم</span>
+                            </div>
+
+                            <div id="kycStatusContainer" style="display:none;"></div>
+
+                            <div id="kycFormContainer">
+                                <div class="kyc-form">
+                                    <div class="kyc-input-group">
+                                        <label><i class="fas fa-user" style="color:#059669;"></i> الاسم</label>
+                                        <input type="text" id="kycFirstName" placeholder="أدخل الاسم" maxlength="50">
+                                    </div>
+                                    <div class="kyc-input-group">
+                                        <label><i class="fas fa-user-tag" style="color:#059669;"></i> اللقب</label>
+                                        <input type="text" id="kycLastName" placeholder="أدخل اللقب" maxlength="50">
+                                    </div>
+                                    <div class="kyc-input-group">
+                                        <label><i class="fas fa-calendar" style="color:#059669;"></i> تاريخ الميلاد</label>
+                                        <input type="date" id="kycBirthDate">
+                                    </div>
+
+                                    <div class="kyc-upload">
+                                        <label><i class="fas fa-id-card" style="color:#059669;"></i> صورة البطاقة (أمامي)</label>
+                                        <div class="kyc-upload-box" id="kycFrontBox" onclick="document.getElementById('kycFrontInput').click()">
+                                            <button type="button" class="kyc-remove-btn" onclick="removeKycFile(event, 'front')"><i class="fas fa-times"></i></button>
+                                            <i class="fas fa-cloud-upload-alt"></i>
+                                            <span>اضغط لاختيار صورة</span>
+                                            <img id="kycFrontPreview" style="display:none;" alt="front">
+                                        </div>
+                                        <input type="file" id="kycFrontInput" accept="image/*" style="display:none;" onchange="previewKycImage(event, 'front')">
+                                    </div>
+
+                                    <div class="kyc-upload">
+                                        <label><i class="fas fa-id-card" style="color:#059669;"></i> صورة البطاقة (خلفي)</label>
+                                        <div class="kyc-upload-box" id="kycBackBox" onclick="document.getElementById('kycBackInput').click()">
+                                            <button type="button" class="kyc-remove-btn" onclick="removeKycFile(event, 'back')"><i class="fas fa-times"></i></button>
+                                            <i class="fas fa-cloud-upload-alt"></i>
+                                            <span>اضغط لاختيار صورة</span>
+                                            <img id="kycBackPreview" style="display:none;" alt="back">
+                                        </div>
+                                        <input type="file" id="kycBackInput" accept="image/*" style="display:none;" onchange="previewKycImage(event, 'back')">
+                                    </div>
+
+                                    <div class="kyc-upload">
+                                        <label><i class="fas fa-video" style="color:#059669;"></i> فيديو (20-30 ثانية)</label>
+                                        <div class="kyc-upload-box" id="kycVideoBox" onclick="document.getElementById('kycVideoInput').click()">
+                                            <button type="button" class="kyc-remove-btn" onclick="removeKycFile(event, 'video')"><i class="fas fa-times"></i></button>
+                                            <i class="fas fa-video"></i>
+                                            <span>اضغط لاختيار فيديو</span>
+                                            <video id="kycVideoPreview" style="display:none;" controls playsinline></video>
+                                        </div>
+                                        <input type="file" id="kycVideoInput" accept="video/*" style="display:none;" onchange="previewKycVideo(event)">
+                                        <div id="kycVideoInfo" style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:center;"></div>
+                                    </div>
+                                </div>
+
+                                <button class="pc-btn" id="kycSubmitBtn" onclick="submitKyc()">
+                                    <i class="fas fa-paper-plane"></i> إرسال طلب التحقق
+                                </button>
+                                <p class="pc-note">* سيتم المراجعة خلال 24-48 ساعة</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUBSCRIPTION TAB -->
+            <div class="profile-tab-panel" id="panel-subscription">
+                <div class="pricing-widget">
+                    <div class="pc-card pc-starter">
+                        <div class="pc-stripe"></div>
+                        <div class="pc-body">
+                            <div class="pc-top">
+                                <div class="pc-name-badge"><i class="fas fa-seedling"></i><h3>Starter</h3></div>
+                                <span class="pc-price">350 <small>دج</small></span>
+                            </div>
+                            <button class="pc-btn" onclick="subscribeToPlan('starter')">اشتراك</button>
+                        </div>
+                    </div>
+                    <div class="pc-card pc-basic">
+                        <div class="pc-stripe"></div>
+                        <div class="pc-body">
+                            <div class="pc-top">
+                                <div class="pc-name-badge"><i class="fas fa-layer-group"></i><h3>Basic</h3></div>
+                                <span class="pc-price">500 <small>دج</small></span>
+                            </div>
+                            <button class="pc-btn" onclick="subscribeToPlan('basic')">اشتراك</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <div class="modal-overlay" id="investmentModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modalPlanName">خطة</h3>
+                <button class="close-modal" onclick="closeInvestmentModal()">&times;</button>
+            </div>
+            <div class="modal-balance-warning" id="modalBalanceStatus">
+                <i class="fas fa-wallet"></i>
+                <span>رصيدك: <strong id="modalUserBalance">0.00</strong></span>
+            </div>
+            <div class="modal-actions" style="display:flex;gap:10px;margin-top:6px;">
+                <button class="btn btn-outline" onclick="closeInvestmentModal()">إلغاء</button>
+                <button class="btn btn-primary" id="modalConfirmBtn" onclick="confirmInvestment()">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="donationModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 style="color:#10b981;"><i class="fas fa-hand-holding-heart"></i> تبرع</h3>
+                <button class="close-modal" onclick="closeDonationModal()">&times;</button>
+            </div>
+            <div class="modal-actions" style="display:flex;gap:10px;">
+                <button class="btn btn-outline" onclick="closeDonationModal()">إلغاء</button>
+                <button class="btn btn-success" id="donationConfirmBtn" onclick="confirmDonation()">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="depositConfirmModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>تأكيد الإيداع</h3>
+                <button class="close-modal" onclick="closeDepositConfirmModal()">&times;</button>
+            </div>
+            <div id="confirmDetails"></div>
+            <div class="modal-actions" style="display:flex;gap:10px;">
+                <button class="btn btn-outline" onclick="closeDepositConfirmModal()">إلغاء</button>
+                <button class="btn btn-success" onclick="confirmDepositSubmit()">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="withdrawConfirmModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>تأكيد السحب</h3>
+                <button class="close-modal" onclick="closeWithdrawConfirmModal()">&times;</button>
+            </div>
+            <div id="withdrawConfirmDetails"></div>
+            <div class="modal-actions" style="display:flex;gap:10px;">
+                <button class="btn btn-outline" onclick="closeWithdrawConfirmModal()">إلغاء</button>
+                <button class="btn btn-danger" onclick="confirmWithdrawSubmit()">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="subscriptionConfirmModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>تأكيد الاشتراك</h3>
+                <button class="close-modal" onclick="closeSubscriptionConfirmModal()">&times;</button>
+            </div>
+            <div id="subscriptionConfirmDetails"></div>
+            <div class="modal-actions" style="display:flex;gap:10px;">
+                <button class="btn btn-outline" onclick="closeSubscriptionConfirmModal()">إلغاء</button>
+                <button class="btn btn-primary" onclick="confirmSubscriptionSubmit()">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="verificationConfirmModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>تأكيد التوثيق</h3>
+                <button class="close-modal" onclick="closeVerificationConfirmModal()">&times;</button>
+            </div>
+            <div id="verificationConfirmDetails"></div>
+            <div class="modal-actions" style="display:flex;gap:10px;">
+                <button class="btn btn-outline" onclick="closeVerificationConfirmModal()">إلغاء</button>
+                <button class="btn btn-primary" onclick="confirmVerificationSubmit()">تأكيد</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <button class="nav-item active" data-page="home" onclick="navigateTo('home')">
+            <i class="fas fa-house"></i><span>الرئيسية</span>
+        </button>
+        <button class="nav-item" data-page="packages" onclick="navigateTo('packages')">
+            <i class="fas fa-exchange-alt"></i><span>التبادل</span>
+        </button>
+        <button class="nav-item" data-page="investments" onclick="navigateTo('investments')">
+            <i class="fas fa-chart-line"></i><span>استثماراتي</span>
+        </button>
+        <button class="nav-item" data-page="wallet" onclick="navigateTo('wallet')">
+            <i class="fas fa-wallet"></i><span>المحفظة</span>
+        </button>
+        <button class="nav-item" data-page="referrals" onclick="navigateTo('referrals')">
+            <i class="fas fa-users"></i><span>الإحالات</span>
+        </button>
+        <button class="nav-item" data-page="profile" onclick="navigateTo('profile')">
+            <i class="fas fa-user"></i><span>الحساب</span>
+        </button>
+    </nav>
+
+    <script>
+        // ============================================================
+        // FIREBASE CONFIG
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCF0h_UPivX8oGoQL8Dn1s0lr79VAXpMY",
+            authDomain: "crynova-4d6b3.firebaseapp.com",
+            projectId: "crynova-4d6b3",
+            storageBucket: "crynova-4d6b3.firebasestorage.app",
+            messagingSenderId: "858898515024",
+            appId: "1:858898515024:web:03827d57c2737bbc27bd55"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // ═══════════════════════════════════════════════════════════
+        // ⚠️⚠️⚠️  غيّر هذا الرابط إلى رابط خدمتك على Render  ⚠️⚠️⚠️
+        // ═══════════════════════════════════════════════════════════
+        const KYC_SERVER_URL = 'https://crynovaverification.onrender.com';
+        //                    ↑↑↑ ضع رابط Render هنا
+
+        // ============================================================
+        // STATE
+        // ============================================================
+        let userData = null;
+        let allInvestPlans = [];
+        let currentFilter = 'all';
+        let isDarkTheme = false;
+        let unsubscribeUser = null;
+        let isModalOpen = false;
+        let subscriptionRemainingInterval = null;
+        let pendingDepositData = null;
+        let pendingWithdrawData = null;
+        let pendingSubscriptionData = null;
+        let pendingVerificationData = null;
+
+        let kycFiles = { front: null, back: null, video: null };
+
+        const POSTAL_ACCOUNT = '00799999002385412178';
+        const BINANCE_WALLET = '1143951718';
+        const REDOTPAY_WALLET = '1374908224';
+        const MIN_WITHDRAW = 1000;
+        const MIN_WITHDRAW_USDT = 10;
+        const MIN_DEPOSIT = 2000;
+        const MIN_DEPOSIT_USDT = 10;
+        const RATE_USDT_TO_DZD = 243;
+        const RATE_DZD_TO_USDT = 263;
+        let swapDirection = true;
+
+        const DEFAULT_INVEST_PLANS = [
+            {
+                id: 'plan_basic',
+                name: 'الباقة الأساسية (دائمة)',
+                minAmount: 5000,
+                maxAmount: 200000,
+                dailyReturnPercent: 0.2,
+                currency: 'DZD'
+            },
+            {
+                id: 'plan_usdt',
+                name: 'الباقة الرقمية (USDT)',
+                minAmount: 10,
+                maxAmount: 5000,
+                dailyReturnPercent: 0.05,
+                currency: 'USDT'
+            }
+        ];
+
+        // ============================================================
+        // Helpers
+        // ============================================================
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
+
+        function getLocalUserInfo() {
+            try {
+                return {
+                    displayName: localStorage.getItem('crynova_user_displayName') || 'مستخدم',
+                    username: localStorage.getItem('crynova_user_username') || '',
+                    photoURL: localStorage.getItem('crynova_user_photoURL') || ''
+                };
+            } catch (e) {
+                return { displayName: 'مستخدم', username: '', photoURL: '' };
+            }
+        }
+
+        function setLocalUserInfo(displayName, username, photoURL) {
+            try {
+                localStorage.setItem('crynova_user_displayName', displayName || 'مستخدم');
+                localStorage.setItem('crynova_user_username', username || '');
+                localStorage.setItem('crynova_user_photoURL', photoURL || '');
+            } catch (e) {}
+        }
+
+        function getTelegramUser() {
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                tg.expand();
+                return tg.initDataUnsafe?.user || null;
+            }
+            return null;
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return '--';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            return date.toISOString().split('T')[0].replace(/-/g, '/');
+        }
+
+        function formatDateTime(timestamp) {
+            if (!timestamp) return '--';
+            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+            const dateStr = date.toISOString().split('T')[0].replace(/-/g, '/');
+            const timeStr = date.toTimeString().slice(0, 5);
+            return `${dateStr} ${timeStr}`;
+        }
+
+        function getStatusBadge(status) {
+            const map = {
+                'active': 'status-success', 'pending': 'status-pending', 'completed': 'status-success',
+                'approved': 'status-success', 'confirmed': 'status-success', 'rejected': 'status-danger',
+                'failed': 'status-danger', 'processing': 'status-pending', 'inactive': 'status-danger'
+            };
+            return map[status] || 'status-info';
+        }
+
+        function getStatusText(status) {
+            const map = {
+                'active': 'نشط', 'pending': 'قيد الانتظار', 'completed': 'مكتمل', 'confirmed': 'مؤكد',
+                'approved': 'موافق عليه', 'rejected': 'مرفوض', 'failed': 'فشل',
+                'processing': 'قيد المعالجة', 'inactive': 'غير نشط'
+            };
+            return map[status] || status;
+        }
+
+        function copyText(text) {
+            if (!text) { showToast('لا يوجد نص'); return; }
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => showToast('تم النسخ'));
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                showToast('تم النسخ');
+            }
+        }
+
+        function copyDepositAccount(event) {
+            const btn = event.currentTarget;
+            const input = btn.parentElement.querySelector('input');
+            copyText(input.value);
+            btn.classList.add('copied');
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                btn.innerHTML = '<i class="fas fa-copy"></i>';
+            }, 2000);
+        }
+
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.style.cssText = `
+                position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+                background: var(--accent); color: #fff; padding: 12px 24px;
+                border-radius: 30px; font-weight: 700; z-index: 9999;
+                box-shadow: var(--shadow-lg); font-family: 'Cairo', 'Tajawal', sans-serif;
+                max-width: 90%; text-align: center;
+            `;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => {
+                t.style.opacity = '0';
+                t.style.transition = 'opacity 0.3s';
+                setTimeout(() => t.remove(), 300);
+            }, 3000);
+        }
+
+        function contactSupport() {
+            window.open('https://t.me/Crynova_support', '_blank');
+        }
+
+        // ============================================================
+        // AUTH
+        // ============================================================
+        async function authUser() {
+            const tgUser = getTelegramUser();
+            if (!tgUser) {
+                console.error('❌ لا يمكن العثور على مستخدم Telegram');
+                // للتجربة في المتصفح:
+                userData = {
+                    telegramId: '999999',
+                    displayName: 'تجربة',
+                    username: 'test',
+                    wallets: { dzd: 0, dzdReward: 0, dzdReferral: 0, usdt: 0, dzdLocked: 0 },
+                    investments: [],
+                    transactions: [],
+                    referrals: [],
+                    deposits: [],
+                    withdrawals: [],
+                    kycStatus: null,
+                    verified: false,
+                    level: 1
+                };
+                updateUI();
+                loadPlans();
+                renderKycStatus();
+                return;
+            }
+            const telegramId = tgUser.id.toString();
+            try {
+                const userRef = db.collection('users').doc(telegramId);
+                const docSnap = await userRef.get();
+                if (docSnap.exists) {
+                    userData = { telegramId, ...docSnap.data() };
+                    const displayName = userData.displayName || tgUser.first_name || 'مستخدم';
+                    const username = userData.username || tgUser.username || '';
+                    setLocalUserInfo(displayName, username, userData.photoURL || tgUser.photo_url || '');
+                } else {
+                    const displayName = tgUser.first_name + (tgUser.last_name ? ' ' + tgUser.last_name : '');
+                    const newUser = {
+                        telegramId,
+                        joinDate: firebase.firestore.FieldValue.serverTimestamp(),
+                        level: 1,
+                        status: 'active',
+                        wallets: { dzd: 0, dzdReward: 0, dzdReferral: 0, usdt: 0, dzdLocked: 0 },
+                        investments: [],
+                        transactions: [],
+                        referrals: [],
+                        deposits: [],
+                        withdrawals: [],
+                        subscription: { plan: null, status: 'inactive' },
+                        verified: false,
+                        kycStatus: null
+                    };
+                    await userRef.set(newUser);
+                    userData = { telegramId, ...newUser };
+                    setLocalUserInfo(displayName, username, tgUser.photo_url || '');
+                }
+                if (unsubscribeUser) unsubscribeUser();
+                unsubscribeUser = db.collection('users').doc(telegramId).onSnapshot((doc) => {
+                    if (doc.exists) {
+                        userData = { telegramId: doc.id, ...doc.data() };
+                        updateUI();
+                        renderKycStatus();
+                        renderInvestments();
+                    }
+                });
+                loadPlans();
+                updateUI();
+                renderKycStatus();
+            } catch (e) {
+                console.error('❌ خطأ في المصادقة:', e);
+            }
+        }
+
+        // ============================================================
+        // NAVIGATION
+        // ============================================================
+        function navigateTo(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            const el = document.getElementById('page-' + page);
+            if (el) el.classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+            if (page === 'profile') updateProfileUI();
+            if (page === 'investments') renderInvestments();
+            if (page === 'packages') updateSwapBalances();
+        }
+
+        // ============================================================
+        // UI UPDATES
+        // ============================================================
+        function updateUI() {
+            if (!userData) return;
+            const localInfo = getLocalUserInfo();
+            const name = localInfo.displayName || 'مستخدم';
+            const initial = name.charAt(0).toUpperCase() || '?';
+            document.querySelectorAll('#profileAvatar, #headerAvatar').forEach(el => {
+                el.textContent = initial;
+            });
+            setText('profileName', name);
+            setText('headerUserName', name);
+            setText('profileLevel', userData.level || 1);
+            setText('headerUserLevel', `المستوى ${userData.level || 1}`);
+            const username = localInfo.username || userData.username || '';
+            setText('profileTelegram', username ? `@${username}` : 'غير متاح');
+            updateProfileUI();
+            updateHomeUI();
+            updateWalletUI();
+            updateReferralUI();
+            renderInvestments();
+            updateVerificationStatus();
+            updateSwapBalances();
+            updateVerificationBadges();
+            updateVerificationUI();
+        }
+
+        function updateProfileUI() {
+            if (!userData) return;
+            setText('profileJoinDate', formatDate(userData.joinDate));
+            const refLink = document.getElementById('referralLink');
+            if (refLink && userData.telegramId) {
+                refLink.value = `https://t.me/Crynova_bot?start=${userData.telegramId}`;
+            }
+        }
+
+        function updateVerificationBadges() {
+            const isVerified = userData && userData.verified;
+            const badges = ['profileVerifiedBadge', 'headerVerifiedBadge'];
+            badges.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = isVerified ? 'flex' : 'none';
+            });
+        }
+
+        function updateVerificationStatus() {
+            const el = document.getElementById('verificationStatus');
+            if (!el) return;
+            if (!userData) { el.textContent = ''; return; }
+            if (userData.verified) {
+                el.textContent = '✅ تم التحقق';
+                el.style.cssText = 'color:#22c55e;background:#ecfdf5;padding:2px 10px;border-radius:20px;font-size:13px;font-weight:700;';
+            } else {
+                el.textContent = '❌ غير موثق';
+                el.style.cssText = 'color:#e17055;background:#fde8e8;padding:2px 10px;border-radius:20px;font-size:13px;font-weight:700;';
+            }
+        }
+
+        function updateHomeUI() {
+            if (!userData) return;
+            const u = userData;
+            const balance = (u.wallets?.dzd || 0) + (u.wallets?.dzdReward || 0) + (u.wallets?.dzdReferral || 0);
+            const usdt = u.wallets?.usdt || 0;
+            setText('homeBalance', balance.toFixed(2));
+            setText('homeUsdt', usdt.toFixed(2));
+        }
+
+        function updateWalletUI() {
+            if (!userData) return;
+            const w = userData.wallets || {};
+            const main = w.dzd || 0, reward = w.dzdReward || 0,
+                  referral = w.dzdReferral || 0, locked = w.dzdLocked || 0;
+            const total = main + reward + referral;
+            setText('walletTotal', total.toFixed(2));
+            setText('walletUsdt', (w.usdt || 0).toFixed(2));
+            setText('walletMain', main.toFixed(2));
+            setText('walletReward', reward.toFixed(2));
+            setText('walletReferral', referral.toFixed(2));
+            setText('walletLocked', locked.toFixed(2));
+        }
+
+        function updateReferralUI() {
+            if (!userData) return;
+            setText('refEarnings', (userData.wallets?.dzdReferral || 0).toFixed(2));
+            setText('refTotalReferrals', userData.referrals?.length || 0);
+        }
+
+        // ============================================================
+        // SWAP
+        // ============================================================
+        function toggleSwapDirection() {
+            swapDirection = !swapDirection;
+            updateSwapUI();
+            calculateSwapResult();
+        }
+
+        function updateSwapUI() {
+            const fromLabel = document.getElementById('swapFromLabel');
+            const toLabel = document.getElementById('swapToLabel');
+            if (!fromLabel || !toLabel) return;
+            if (swapDirection) {
+                fromLabel.textContent = 'DZD';
+                toLabel.textContent = 'USDT';
+            } else {
+                fromLabel.textContent = 'USDT';
+                toLabel.textContent = 'DZD';
+            }
+            fromLabel.className = `dir-badge ${swapDirection ? 'dzd' : 'usdt'}`;
+            toLabel.className = `dir-badge ${swapDirection ? 'usdt' : 'dzd'}`;
+        }
+
+        function calculateSwapResult() {
+            const input = document.getElementById('swapAmountInput');
+            const resultSpan = document.getElementById('swapResultValue');
+            if (!input || !resultSpan) return;
+            const amount = parseFloat(input.value) || 0;
+            if (swapDirection) {
+                const usdt = amount / RATE_DZD_TO_USDT;
+                resultSpan.textContent = `${usdt.toFixed(4)} USDT`;
+                resultSpan.className = 'value usdt-color';
+            } else {
+                const dzd = amount * RATE_USDT_TO_DZD;
+                resultSpan.textContent = `${dzd.toFixed(2)} DZD`;
+                resultSpan.className = 'value dzd-color';
+            }
+        }
+
+        function updateSwapBalances() {
+            if (!userData) return;
+            setText('swapDzdBalance', (userData.wallets?.dzd || 0).toFixed(2));
+            setText('swapUsdtBalance', (userData.wallets?.usdt || 0).toFixed(2));
+        }
+
+        function executeSwap() {
+            showToast('ميزة التبادل قيد التطوير');
+        }
+
+        // ============================================================
+        // DEPOSIT / WITHDRAW (placeholder)
+        // ============================================================
+        function updateDepositForm(method) {
+            const accountInput = document.getElementById('depositAccountInput');
+            if (!accountInput) return;
+            if (method === 'baridi') accountInput.value = POSTAL_ACCOUNT;
+            else if (method === 'binance') accountInput.value = BINANCE_WALLET;
+            else if (method === 'redotpay') accountInput.value = REDOTPAY_WALLET;
+        }
+
+        function submitDeposit() { showToast('قريباً'); }
+        function closeDepositConfirmModal() {
+            const m = document.getElementById('depositConfirmModal');
+            if (m) m.classList.remove('active');
+        }
+        function confirmDepositSubmit() { showToast('قريباً'); }
+
+        function updateWithdrawForm(method) {
+            updateWithdrawableBalance(method);
+        }
+
+        function updateWithdrawableBalance(method) {
+            if (!userData) return;
+            const w = userData.wallets || {};
+            let balance = 0;
+            if (method === 'baridi') balance = (w.dzd || 0) + (w.dzdReward || 0) + (w.dzdReferral || 0);
+            else balance = w.usdt || 0;
+            setText('withdrawableBalance', balance.toFixed(2));
+        }
+
+        function submitWithdraw() { showToast('قريباً'); }
+        function closeWithdrawConfirmModal() {
+            const m = document.getElementById('withdrawConfirmModal');
+            if (m) m.classList.remove('active');
+        }
+        function confirmWithdrawSubmit() { showToast('قريباً'); }
+
+        // ============================================================
+        // PLANS / INVESTMENTS
+        // ============================================================
+        function loadPlans() {
+            allInvestPlans = DEFAULT_INVEST_PLANS;
+            renderPlansInside();
+        }
+
+        function renderPlansInside() {
+            const container = document.getElementById('investPlansListInside');
+            if (!container) return;
+            container.innerHTML = allInvestPlans.map((p, i) => {
+                const isUSDT = p.currency === 'USDT';
+                const symbol = isUSDT ? 'USDT' : 'DZD';
+                return `
+                    <div class="plan-card ${i===1?'popular':''}">
+                        ${i===1?'<div class="badge-popular">⭐ الأفضل</div>':''}
+                        <div class="name">${p.name}</div>
+                        <div class="return ${isUSDT?'':'dzd-return'}">${p.dailyReturnPercent}% <small>يومياً</small></div>
+                        <ul class="features">
+                            <li><i class="fas fa-coins"></i> ${p.minAmount} - ${p.maxAmount} ${symbol}</li>
+                            <li><i class="fas fa-infinity"></i> المدة: دائمة</li>
+                        </ul>
+                        <button class="btn btn-primary" onclick="openInvestmentModal('${p.id}')">استثمر الآن</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function switchInvestTab(tabId) {
+            document.querySelectorAll('.invest-tab-panel').forEach(p => p.classList.remove('active'));
+            const target = document.getElementById('panel-' + tabId);
+            if (target) target.classList.add('active');
+            document.querySelectorAll('#page-investments .profile-tab-btn').forEach(b => {
+                b.classList.toggle('active', b.textContent.includes(tabId === 'invest-plans' ? 'الباقات' : 'استثماراتي'));
+            });
+        }
+
+        function openInvestmentModal(planId) { showToast('قريباً'); }
+        function closeInvestmentModal() {
+            const m = document.getElementById('investmentModal');
+            if (m) m.classList.remove('active');
+        }
+        function confirmInvestment() { showToast('قريباً'); }
+
+        function renderInvestments() {
+            const container = document.getElementById('activeInvestments');
+            if (!container || !userData) return;
+            const invs = userData.investments || [];
+            if (!invs.length) {
+                container.innerHTML = '<div class="text-muted text-center" style="padding:30px 0;">ليس لديك استثمارات نشطة</div>';
+                return;
+            }
+            let totalDZD = 0, retDZD = 0;
+            invs.forEach(inv => {
+                if (inv.currency === 'DZD') { totalDZD += inv.amount; retDZD += (inv.totalReturn || 0); }
+            });
+            setText('investTotalInvestedDZD', totalDZD.toFixed(2));
+            setText('investTotalReturnDZD', retDZD.toFixed(2));
+            container.innerHTML = invs.map(inv => `
+                <div class="card" style="border-right:4px solid var(--gold);">
+                    <div class="flex-between">
+                        <span style="font-weight:800;">${inv.planName || 'استثمار'}</span>
+                        <span class="status status-success">نشط</span>
+                    </div>
+                    <div class="grid-2" style="margin-top:8px;">
+                        <div class="invest-stat">
+                            <div class="number">${inv.amount.toFixed(2)}</div>
+                            <div class="label">المبلغ</div>
+                        </div>
+                        <div class="invest-stat">
+                            <div class="number">${(inv.totalReturn || 0).toFixed(2)}</div>
+                            <div class="label">الأرباح</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ============================================================
+        // DONATION
+        // ============================================================
+        function openDonationModal() {
+            const m = document.getElementById('donationModal');
+            if (m) m.classList.add('active');
+        }
+        function closeDonationModal() {
+            const m = document.getElementById('donationModal');
+            if (m) m.classList.remove('active');
+        }
+        function confirmDonation() { showToast('قريباً'); }
+
+        // ============================================================
+        // SUBSCRIPTION
+        // ============================================================
+        function subscribeToPlan(planId) { showToast('قريباً'); }
+        function closeSubscriptionConfirmModal() {
+            const m = document.getElementById('subscriptionConfirmModal');
+            if (m) m.classList.remove('active');
+        }
+        function confirmSubscriptionSubmit() { showToast('قريباً'); }
+        function updateSubscriptionUI() {}
+
+        // ============================================================
+        // VERIFICATION (شارة زرقاء)
+        // ============================================================
+        function requestVerification() { showToast('قريباً'); }
+        function closeVerificationConfirmModal() {
+            const m = document.getElementById('verificationConfirmModal');
+            if (m) m.classList.remove('active');
+        }
+        function confirmVerificationSubmit() { showToast('قريباً'); }
+
+        function updateVerificationUI() {
+            if (!userData) return;
+            const btn = document.getElementById('verificationActionBtn');
+            if (!btn) return;
+            if (userData.verified) {
+                btn.innerHTML = '<i class="fas fa-check-circle"></i> ✅ موثق';
+                btn.disabled = true;
+                btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            } else {
+                btn.innerHTML = '<i class="fas fa-badge-check"></i> وثّق حسابي الآن';
+                btn.disabled = false;
+                btn.style.background = 'linear-gradient(135deg, #2563eb, #7c3aed)';
+            }
+        }
+
+        // ============================================================
+        // KYC — Preview
+        // ============================================================
+        function previewKycImage(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('image/')) {
+                showToast('⚠️ يجب اختيار صورة');
+                event.target.value = '';
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('⚠️ الحجم يجب أن يكون أقل من 5MB');
+                event.target.value = '';
+                return;
+            }
+            kycFiles[type] = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const preview = document.getElementById(type === 'front' ? 'kycFrontPreview' : 'kycBackPreview');
+                const box = document.getElementById(type === 'front' ? 'kycFrontBox' : 'kycBackBox');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+                box.classList.add('has-file');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function previewKycVideo(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            if (!file.type.startsWith('video/')) {
+                showToast('⚠️ يجب اختيار فيديو');
+                event.target.value = '';
+                return;
+            }
+            if (file.size > 30 * 1024 * 1024) {
+                showToast('⚠️ الحجم يجب أن يكون أقل من 30MB');
+                event.target.value = '';
+                return;
+            }
+            const videoUrl = URL.createObjectURL(file);
+            const preview = document.getElementById('kycVideoPreview');
+            const info = document.getElementById('kycVideoInfo');
+            const box = document.getElementById('kycVideoBox');
+            preview.src = videoUrl;
+            preview.style.display = 'block';
+            info.textContent = '⏳ جاري التحقق...';
+            preview.onloadedmetadata = () => {
+                const duration = Math.round(preview.duration);
+                if (duration < 20 || duration > 30) {
+                    showToast(`⚠️ المدة ${duration} ثانية. يجب 20-30`);
+                    info.innerHTML = `<span style="color:var(--danger);">❌ ${duration}s (يجب 20-30)</span>`;
+                    preview.style.display = 'none';
+                    kycFiles.video = null;
+                    event.target.value = '';
+                    URL.revokeObjectURL(videoUrl);
+                    return;
+                }
+                kycFiles.video = file;
+                box.classList.add('has-file');
+                info.innerHTML = `<span style="color:var(--success);">✅ المدة: ${duration} ثانية</span>`;
+            };
+        }
+
+        function removeKycFile(event, type) {
+            if (event && event.stopPropagation) event.stopPropagation();
+            kycFiles[type] = null;
+            if (type === 'front' || type === 'back') {
+                const preview = document.getElementById(type === 'front' ? 'kycFrontPreview' : 'kycBackPreview');
+                const input = document.getElementById(type === 'front' ? 'kycFrontInput' : 'kycBackInput');
+                const box = document.getElementById(type === 'front' ? 'kycFrontBox' : 'kycBackBox');
+                preview.src = '';
+                preview.style.display = 'none';
+                input.value = '';
+                box.classList.remove('has-file');
+            } else if (type === 'video') {
+                const preview = document.getElementById('kycVideoPreview');
+                const input = document.getElementById('kycVideoInput');
+                const box = document.getElementById('kycVideoBox');
+                const info = document.getElementById('kycVideoInfo');
+                preview.pause();
+                preview.src = '';
+                preview.style.display = 'none';
+                input.value = '';
+                box.classList.remove('has-file');
+                info.textContent = '';
+            }
+        }
+
+        // ============================================================
+        // ✅✅✅ KYC — SUBMIT (إلى Render Server) ✅✅✅
+        // ============================================================
+        async function submitKyc() {
+            if (!userData) { showToast('يرجى تسجيل الدخول'); return; }
+
+            if (userData.kycStatus === 'pending') {
+                showToast('⚠️ لديك طلب قيد المراجعة');
+                return;
+            }
+            if (userData.kycStatus === 'approved') {
+                showToast('✅ هويتك موثقة بالفعل');
+                return;
+            }
+
+            const firstName = document.getElementById('kycFirstName').value.trim();
+            const lastName = document.getElementById('kycLastName').value.trim();
+            const birthDate = document.getElementById('kycBirthDate').value;
+
+            if (!firstName || firstName.length < 2) { showToast('⚠️ أدخل الاسم'); return; }
+            if (!lastName || lastName.length < 2) { showToast('⚠️ أدخل اللقب'); return; }
+            if (!birthDate) { showToast('⚠️ أدخل تاريخ الميلاد'); return; }
+            if (!kycFiles.front) { showToast('⚠️ أرفق صورة البطاقة الأمامية'); return; }
+            if (!kycFiles.back) { showToast('⚠️ أرفق صورة البطاقة الخلفية'); return; }
+            if (!kycFiles.video) { showToast('⚠️ أرفق الفيديو'); return; }
+
+            const btn = document.getElementById('kycSubmitBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإرسال...';
+
+            try {
+                const fd = new FormData();
+                fd.append('userId', userData.telegramId);
+                fd.append('firstName', firstName);
+                fd.append('lastName', lastName);
+                fd.append('birthDate', birthDate);
+                fd.append('username', userData.username || '');
+                fd.append('displayName', userData.displayName || '');
+                fd.append('front', kycFiles.front);
+                fd.append('back', kycFiles.back);
+                fd.append('video', kycFiles.video);
+
+                console.log('📤 إرسال KYC إلى:', KYC_SERVER_URL + '/kyc');
+
+                const res = await fetch(KYC_SERVER_URL + '/kyc', {
+                    method: 'POST',
+                    body: fd
+                });
+
+                if (!res.ok) {
+                    const errText = await res.text().catch(() => '');
+                    throw new Error(`HTTP ${res.status}: ${errText}`);
+                }
+
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'فشل الإرسال');
+
+                showToast('✅ تم إرسال طلبك، سيتم مراجعته');
+
+                kycFiles = { front: null, back: null, video: null };
+                document.getElementById('kycFirstName').value = '';
+                document.getElementById('kycLastName').value = '';
+                document.getElementById('kycBirthDate').value = '';
+                removeKycFile({ stopPropagation: () => {} }, 'front');
+                removeKycFile({ stopPropagation: () => {} }, 'back');
+                removeKycFile({ stopPropagation: () => {} }, 'video');
+
+                userData.kycStatus = 'pending';
+                userData.kycSubmittedAt = new Date();
+                renderKycStatus();
+
+            } catch (e) {
+                console.error('❌ فشل KYC:', e);
+                showToast('❌ ' + (e.message || 'فشل الإرسال'));
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        // ============================================================
+        // KYC — render status (من Firestore)
+        // ============================================================
+        function renderKycStatus() {
+            const statusContainer = document.getElementById('kycStatusContainer');
+            const formContainer = document.getElementById('kycFormContainer');
+            if (!statusContainer || !formContainer) return;
+
+            const status = userData?.kycStatus;
+
+            if (!status) {
+                statusContainer.style.display = 'none';
+                formContainer.style.display = 'block';
+                return;
+            }
+
+            statusContainer.style.display = 'block';
+
+            if (status === 'pending') {
+                formContainer.style.display = 'none';
+                const submitTime = userData.kycSubmittedAt?.toDate
+                    ? userData.kycSubmittedAt.toDate()
+                    : new Date(userData.kycSubmittedAt || Date.now());
+                statusContainer.innerHTML = `
+                    <div class="kyc-status-badge pending">
+                        <i class="fas fa-clock"></i>
+                        <div>
+                            <div>⏳ طلبك قيد المراجعة</div>
+                            <div style="font-size:0.68rem;font-weight:500;margin-top:2px;">
+                                تم الإرسال: ${formatDateTime(submitTime)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="kyc-progress">
+                        <span>سيتم المراجعة خلال 24-48 ساعة</span>
+                    </div>
+                `;
+            } else if (status === 'approved') {
+                formContainer.style.display = 'none';
+                statusContainer.innerHTML = `
+                    <div class="kyc-status-badge approved">
+                        <i class="fas fa-check-circle"></i>
+                        <div>
+                            <div>✅ تم توثيق هويتك بنجاح</div>
+                            <div style="font-size:0.68rem;font-weight:500;margin-top:2px;">
+                                شكراً لك!
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (status === 'rejected') {
+                formContainer.style.display = 'block';
+                const reason = userData.kycRejectionReason || 'يرجى إعادة الإرسال';
+                statusContainer.innerHTML = `
+                    <div class="kyc-status-badge rejected">
+                        <i class="fas fa-times-circle"></i>
+                        <div>
+                            <div>❌ تم رفض طلبك</div>
+                            <div style="font-size:0.68rem;font-weight:500;margin-top:2px;">
+                                ${reason}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // ============================================================
+        // THEME / PROFILE
+        // ============================================================
+        function toggleTheme() {
+            isDarkTheme = !isDarkTheme;
+            const root = document.documentElement;
+            const btn = document.getElementById('themeToggle');
+            if (isDarkTheme) {
+                root.style.setProperty('--bg-primary', '#0a0a1a');
+                root.style.setProperty('--bg-card', '#1a1a3e');
+                root.style.setProperty('--bg-input', '#1a1a3e');
+                root.style.setProperty('--bg-nav', '#1a1a3e');
+                root.style.setProperty('--text-primary', '#e8e8f0');
+                root.style.setProperty('--text-secondary', '#8888aa');
+                root.style.setProperty('--border', '#2a2a5a');
+                btn.innerHTML = '<i class="fas fa-sun"></i>';
+            } else {
+                root.style.setProperty('--bg-primary', '#f0f4f8');
+                root.style.setProperty('--bg-card', '#ffffff');
+                root.style.setProperty('--bg-input', '#f0f4f8');
+                root.style.setProperty('--bg-nav', '#ffffff');
+                root.style.setProperty('--text-primary', '#1a1a2e');
+                root.style.setProperty('--text-secondary', '#4a4a6a');
+                root.style.setProperty('--border', '#e2e8f0');
+                btn.innerHTML = '<i class="fas fa-moon"></i>';
+            }
+        }
+
+        function switchProfileTab(tabId) {
+            document.querySelectorAll('.profile-tab-panel').forEach(p => p.classList.remove('active'));
+            const target = document.getElementById('panel-' + tabId);
+            if (target) target.classList.add('active');
+            document.querySelectorAll('.profile-tab-btn').forEach(b => {
+                b.classList.remove('active');
+                if (b.textContent.includes(tabId === 'profile' ? 'الشخصي' : tabId === 'verification' ? 'التوثيق' : 'الاشتراكات')) {
+                    b.classList.add('active');
+                }
+            });
+            if (tabId === 'verification') updateVerificationUI();
+        }
+
+        // ============================================================
+        // INIT
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            authUser();
+            updateSwapUI();
+            calculateSwapResult();
+            const swapInput = document.getElementById('swapAmountInput');
+            if (swapInput) swapInput.addEventListener('input', calculateSwapResult);
+            const withdrawAmount = document.getElementById('withdrawAmount');
+            if (withdrawAmount) {
+                withdrawAmount.addEventListener('input', () => {
+                    const method = document.getElementById('withdrawMethodSelect').value;
+                    const amount = parseFloat(withdrawAmount.value) || 0;
+                    const fee = (method === 'baridi') ? amount * 0.10 : 0;
+                    setText('withdrawFee', fee.toFixed(2));
+                    setText('withdrawTotal', (amount + fee).toFixed(2));
+                });
+            }
+        });
+
+        console.log('🚀 Crynova loaded');
+        console.log('📡 KYC Server:', KYC_SERVER_URL);
+    </script>
+
 </body>
 </html>
