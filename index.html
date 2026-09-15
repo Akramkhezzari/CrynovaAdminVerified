@@ -1,431 +1,499 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const admin = require('firebase-admin');
-const fetch = require('node-fetch');
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>لوحة إدارة Crynova</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Cairo',sans-serif; }
+  body { background:#0f172a; color:#e2e8f0; min-height:100vh; padding:16px; }
+  .container { max-width:1200px; margin:0 auto; }
+
+  .header {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:20px; padding:16px 20px; background:#1e293b;
+    border-radius:16px; flex-wrap:wrap; gap:10px;
+  }
+  .header h1 { color:#6c5ce7; font-size:22px; display:flex; align-items:center; gap:10px; }
+  .header-actions { display:flex; gap:8px; }
+  .header-actions button {
+    padding:10px 18px; border-radius:10px; border:none;
+    background:#334155; color:#e2e8f0; font-weight:600;
+    cursor:pointer; font-family:inherit; font-size:13px;
+    transition:0.2s;
+  }
+  .header-actions button:hover { background:#475569; }
+  .header-actions button.active { background:#6c5ce7; color:white; }
+
+  .stats {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:12px; margin-bottom:20px;
+  }
+  .stat {
+    background:#1e293b; padding:16px; border-radius:14px; text-align:center;
+  }
+  .stat .num { font-size:28px; font-weight:900; color:#6c5ce7; }
+  .stat .lbl { color:#94a3b8; font-size:13px; margin-top:4px; }
+
+  #list { display:flex; flex-direction:column; gap:16px; }
+
+  .card {
+    background:#1e293b; border-radius:16px; padding:20px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.2);
+  }
+
+  .card-header {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:14px; padding-bottom:12px;
+    border-bottom:1px solid #334155; flex-wrap:wrap; gap:8px;
+  }
+  .user-name { font-size:18px; font-weight:800; color:white; }
+  .user-meta { color:#94a3b8; font-size:13px; margin-top:3px; }
+  .badge { padding:5px 12px; border-radius:20px; font-size:11px; font-weight:700; }
+  .badge.pending { background:rgba(251,191,36,0.15); color:#fbbf24; }
+  .badge.approved { background:rgba(34,197,94,0.15); color:#22c55e; }
+  .badge.rejected { background:rgba(239,68,68,0.15); color:#ef4444; }
+  .badge.bot { background:rgba(96,165,250,0.15); color:#60a5fa; }
+  .badge.app { background:rgba(168,85,247,0.15); color:#a855f7; }
+
+  .media-grid {
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:10px; margin:14px 0;
+  }
+  .media-item {
+    background:#0f172a; border-radius:12px; overflow:hidden;
+    position:relative; aspect-ratio:1;
+  }
+  .media-item img, .media-item video {
+    width:100%; height:100%; object-fit:cover;
+    cursor:pointer; display:block;
+  }
+  .media-item .label {
+    position:absolute; top:8px; right:8px;
+    background:rgba(0,0,0,0.75); padding:4px 10px;
+    border-radius:20px; font-size:11px; font-weight:700;
+  }
+
+  .text-content {
+    background:#0f172a; padding:12px 16px; border-radius:12px;
+    margin:10px 0; color:#cbd5e1; font-size:14px;
+    white-space:pre-wrap; word-break:break-word;
+  }
+
+  .actions { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .actions button {
+    flex:1; min-width:120px; padding:11px;
+    border-radius:10px; border:none; font-weight:700;
+    font-size:14px; cursor:pointer; font-family:inherit;
+    transition:0.2s;
+  }
+  .btn-approve { background:linear-gradient(135deg,#22c55e,#16a34a); color:white; }
+  .btn-approve:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(34,197,94,0.4); }
+  .btn-reject { background:linear-gradient(135deg,#ef4444,#dc2626); color:white; }
+  .btn-reject:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(239,68,68,0.4); }
+  .btn-delete { background:#334155; color:#94a3b8; flex:0 0 auto !important; min-width:50px !important; }
+  .btn-delete:hover { background:#475569; color:white; }
+  .actions button:disabled { opacity:0.5; cursor:not-allowed; }
+
+  .empty { text-align:center; padding:60px 20px; color:#64748b; }
+  .empty i { font-size:56px; margin-bottom:16px; color:#334155; }
+
+  /* Modals */
+  #imageModal {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95);
+    z-index:9999; justify-content:center; align-items:center; padding:20px;
+  }
+  #imageModal.active { display:flex; }
+  #imageModal img, #imageModal video { max-width:95%; max-height:95%; border-radius:12px; }
+
+  #rejectModal {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85);
+    z-index:9999; justify-content:center; align-items:center; padding:20px;
+  }
+  #rejectModal.active { display:flex; }
+  #rejectModal .box {
+    background:#1e293b; padding:24px; border-radius:16px;
+    max-width:420px; width:100%;
+  }
+  #rejectModal h3 { margin-bottom:16px; color:#ef4444; }
+  #rejectModal textarea {
+    width:100%; padding:12px; border-radius:10px;
+    border:2px solid #334155; background:#0f172a; color:white;
+    font-family:inherit; font-size:14px; resize:vertical; min-height:100px;
+  }
+  #rejectModal textarea:focus { outline:none; border-color:#ef4444; }
+  #rejectModal .row { display:flex; gap:10px; margin-top:16px; }
+  #rejectModal .row button {
+    flex:1; padding:12px; border-radius:10px; border:none;
+    font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  #rejectModal .cancel { background:#334155; color:white; }
+  #rejectModal .confirm { background:#ef4444; color:white; }
+
+  .loading { text-align:center; padding:60px; color:#64748b; }
+  .loading i { font-size:42px; color:#6c5ce7; margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1><i class="fas fa-shield-alt"></i> لوحة إدارة Crynova</h1>
+    <div class="header-actions">
+      <button id="tabKyc" class="active" onclick="switchTab('kyc')">
+        <i class="fas fa-id-card"></i> طلبات KYC
+      </button>
+      <button id="tabBot" onclick="switchTab('bot')">
+        <i class="fas fa-robot"></i> رسائل البوت
+      </button>
+      <button onclick="loadAll()">
+        <i class="fas fa-sync"></i> تحديث
+      </button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="num" id="statTotal">0</div><div class="lbl">إجمالي KYC</div></div>
+    <div class="stat"><div class="num" id="statPending" style="color:#fbbf24;">0</div><div class="lbl">قيد المراجعة</div></div>
+    <div class="stat"><div class="num" id="statApproved" style="color:#22c55e;">0</div><div class="lbl">موافق عليها</div></div>
+    <div class="stat"><div class="num" id="statRejected" style="color:#ef4444;">0</div><div class="lbl">مرفوضة</div></div>
+  </div>
+
+  <div id="loading" class="loading">
+    <i class="fas fa-spinner fa-spin"></i>
+    <div>جاري التحميل...</div>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<div id="imageModal" onclick="closeImageModal()">
+  <img id="modalImg" style="display:none;" />
+  <video id="modalVideo" style="display:none;" controls autoplay></video>
+</div>
+
+<div id="rejectModal">
+  <div class="box">
+    <h3><i class="fas fa-times-circle"></i> سبب الرفض</h3>
+    <textarea id="rejectReason" placeholder="مثال: صورة البطاقة غير واضحة / الفيديو غير مطابق..."></textarea>
+    <div class="row">
+      <button class="cancel" onclick="closeRejectModal()">إلغاء</button>
+      <button class="confirm" onclick="confirmReject()">تأكيد الرفض</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = (window.location.protocol === 'file:')
+  ? 'https://crynova-verification.onrender.com'
+  : '';
+
+let currentTab = 'kyc';
+let currentRejectUserId = null;
+let kycData = [];
+let botData = [];
+let refreshInterval = null;
 
 // ============================================================
-// CONFIG
+// Tabs
 // ============================================================
-const BOT_TOKEN = process.env.BOT_TOKEN || '';
-const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID || '';
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'crynova_kyc_2026';
-
-console.log('🔧 Config:');
-console.log('  BOT_TOKEN:', BOT_TOKEN ? 'SET ✅' : 'MISSING ❌');
-console.log('  ADMIN_ID:', ADMIN_TELEGRAM_ID || 'MISSING ❌');
-
-// ============================================================
-// Firebase
-// ============================================================
-let serviceAccount;
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-} else if (fs.existsSync('./serviceAccountKey.json')) {
-    serviceAccount = require('./serviceAccountKey.json');
-} else {
-    console.error('❌ FIREBASE_SERVICE_ACCOUNT missing!');
-    process.exit(1);
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabKyc').classList.toggle('active', tab === 'kyc');
+  document.getElementById('tabBot').classList.toggle('active', tab === 'bot');
+  render();
 }
-admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-const db = admin.firestore();
 
 // ============================================================
-// Express
+// Load
 // ============================================================
-const app = express();
-app.use(express.json({ limit: '50mb' }));
+async function loadAll() {
+  try {
+    const [kycRes, botRes] = await Promise.all([
+      fetch(API_BASE + '/admin/api/requests', { cache: 'no-store' }),
+      fetch(API_BASE + '/admin/api/messages', { cache: 'no-store' })
+    ]);
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR);
+    if (kycRes.ok) kycData = await kycRes.json();
+    if (botRes.ok) botData = await botRes.json();
 
-const storage = multer.diskStorage({
-    destination: UPLOADS_DIR,
-    filename: (req, file, cb) => {
-        const userId = (req.body.userId || 'unknown').replace(/[^0-9a-zA-Z_-]/g, '');
-        const ts = Date.now();
-        const ext = file.fieldname === 'video' ? '.mp4' : '.jpg';
-        cb(null, `${userId}_${ts}_${file.fieldname}${ext}`);
-    }
-});
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
-
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
-    next();
-});
-
-// ============================================================
-// Telegram API Helpers
-// ============================================================
-async function tgApi(method, body) {
-    if (!BOT_TOKEN) return { ok: false, description: 'No BOT_TOKEN' };
-    try {
-        const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/${method}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        return await res.json();
-    } catch (e) {
-        console.error(`❌ TG ${method}:`, e.message);
-        return { ok: false, description: e.message };
-    }
+    document.getElementById('loading').style.display = 'none';
+    updateStats();
+    render();
+  } catch (e) {
+    console.error('Load error:', e);
+    document.getElementById('loading').innerHTML = `
+      <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
+      <div style="color:#ef4444;font-weight:700;margin:12px 0;">فشل الاتصال بالخادم</div>
+      <div style="font-size:13px;color:#94a3b8;direction:ltr;text-align:left;">
+        API: <code style="color:#fbbf24;">${API_BASE}</code><br>
+        خطأ: <code style="color:#fbbf24;">${e.message}</code>
+      </div>
+      <button onclick="loadAll()" style="margin-top:16px;padding:10px 20px;border-radius:10px;
+        border:none;background:#6c5ce7;color:white;font-weight:700;cursor:pointer;font-family:inherit;">
+        <i class="fas fa-redo"></i> إعادة المحاولة
+      </button>
+    `;
+  }
 }
 
-async function tgGetFileUrl(fileId) {
-    const r = await tgApi('getFile', { file_id: fileId });
-    if (!r.ok) return null;
-    return `https://api.telegram.org/file/bot${BOT_TOKEN}/${r.result.file_path}`;
-}
-
-async function downloadTgFile(fileId, destPath) {
-    const url = await tgGetFileUrl(fileId);
-    if (!url) return false;
-    try {
-        const res = await fetch(url);
-        if (!res.ok) return false;
-        const buffer = await res.buffer();
-        fs.writeFileSync(destPath, buffer);
-        return true;
-    } catch (e) {
-        console.error('Download failed:', e.message);
-        return false;
-    }
+function updateStats() {
+  document.getElementById('statTotal').textContent = kycData.length;
+  document.getElementById('statPending').textContent = kycData.filter(r => r.status === 'pending').length;
+  document.getElementById('statApproved').textContent = kycData.filter(r => r.status === 'approved').length;
+  document.getElementById('statRejected').textContent = kycData.filter(r => r.status === 'rejected').length;
 }
 
 // ============================================================
-// Bot Webhook — يستقبل كل رسالة من المستخدمين
+// Render
 // ============================================================
-app.post(`/webhook/${WEBHOOK_SECRET}`, async (req, res) => {
-    res.sendStatus(200); // الرد السريع
+function render() {
+  const container = document.getElementById('list');
+  if (currentTab === 'kyc') renderKycList(container);
+  else renderBotList(container);
+}
 
-    try {
-        const update = req.body;
-        const msg = update.message || update.edited_message;
-        if (!msg || !msg.from) return;
+function renderKycList(container) {
+  if (!kycData.length) {
+    container.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><div>لا توجد طلبات</div></div>';
+    return;
+  }
 
-        const from = msg.from;
-        const userId = String(from.id);
-        const username = from.username || '';
-        const displayName = `${from.first_name || ''} ${from.last_name || ''}`.trim();
+  container.innerHTML = kycData.map(r => {
+    const submitted = r.submittedAt
+      ? new Date(r.submittedAt._seconds ? r.submittedAt._seconds * 1000 : r.submittedAt).toLocaleString('ar-DZ')
+      : '—';
+    const badgeClass = r.status === 'approved' ? 'approved' : r.status === 'rejected' ? 'rejected' : 'pending';
+    const badgeText = r.status === 'approved' ? '✅ موافق عليه' : r.status === 'rejected' ? '❌ مرفوض' : '⏳ قيد المراجعة';
+    const isPending = r.status === 'pending';
+    const sourceBadge = r.source === 'bot'
+      ? '<span class="badge bot" style="margin-right:6px;">🤖 من البوت</span>'
+      : '<span class="badge app" style="margin-right:6px;">📱 من التطبيق</span>';
 
-        // تجاهل رسائل الأدمن نفسه
-        if (userId === ADMIN_TELEGRAM_ID) return;
+    return `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="user-name">${r.fullName || 'بدون اسم'}</div>
+            <div class="user-meta">
+              <i class="fas fa-calendar"></i> ${r.birthDate || '—'} • 
+              <i class="fas fa-id-badge"></i> ${r.userId} 
+              ${r.username ? ' • @' + r.username : ''}
+            </div>
+            <div class="user-meta" style="margin-top:4px;">
+              <i class="fas fa-clock"></i> ${submitted}
+            </div>
+          </div>
+          <div>
+            ${sourceBadge}
+            <span class="badge ${badgeClass}">${badgeText}</span>
+          </div>
+        </div>
 
-        // تجاهل الأوامر
-        if (msg.text && msg.text.startsWith('/')) return;
+        ${(r.frontUrl || r.backUrl || r.videoUrl) ? `
+          <div class="media-grid">
+            ${r.frontUrl ? `
+              <div class="media-item" onclick="showMedia('${API_BASE}${r.frontUrl}', 'image')">
+                <span class="label">📸 أمامي</span>
+                <img src="${API_BASE}${r.frontUrl}" loading="lazy" />
+              </div>
+            ` : ''}
+            ${r.backUrl ? `
+              <div class="media-item" onclick="showMedia('${API_BASE}${r.backUrl}', 'image')">
+                <span class="label">📸 خلفي</span>
+                <img src="${API_BASE}${r.backUrl}" loading="lazy" />
+              </div>
+            ` : ''}
+            ${r.videoUrl ? `
+              <div class="media-item" onclick="showMedia('${API_BASE}${r.videoUrl}', 'video')">
+                <span class="label">🎥 فيديو</span>
+                <video src="${API_BASE}${r.videoUrl}" preload="metadata"></video>
+              </div>
+            ` : ''}
+          </div>
+        ` : '<div style="color:#64748b;font-size:13px;margin:12px 0;text-align:center;">لا توجد مرفقات</div>'}
 
-        // حفظ في Firestore
-        const messageDoc = {
-            userId,
-            username,
-            displayName,
-            messageId: msg.message_id,
-            date: new Date((msg.date || Date.now() / 1000) * 1000),
-            text: msg.text || msg.caption || '',
-            hasMedia: !!(msg.photo || msg.video || msg.document),
-            photoFileId: msg.photo ? msg.photo[msg.photo.length - 1].file_id : null,
-            videoFileId: msg.video ? msg.video.file_id : null,
-            documentFileId: msg.document ? msg.document.file_id : null,
-            chatId: msg.chat.id,
-            source: 'bot'
-        };
+        <div class="actions">
+          ${isPending ? `
+            <button class="btn-approve" onclick="approve('${r.userId}', this)">
+              <i class="fas fa-check"></i> موافقة
+            </button>
+            <button class="btn-reject" onclick="openRejectModal('${r.userId}')">
+              <i class="fas fa-times"></i> رفض
+            </button>
+          ` : ''}
+          <button class="btn-delete" onclick="deleteRequest('${r.userId}')" title="حذف">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 
-        // إذا كان يحتوي على ميديا، حمّلها فوراً
-        if (msg.photo) {
-            const fileId = msg.photo[msg.photo.length - 1].file_id;
-            const fname = `bot_${userId}_${Date.now()}_photo.jpg`;
-            const ok = await downloadTgFile(fileId, path.join(UPLOADS_DIR, fname));
-            if (ok) messageDoc.localFile = fname;
-        }
-        if (msg.video) {
-            const fname = `bot_${userId}_${Date.now()}_video.mp4`;
-            const ok = await downloadTgFile(msg.video.file_id, path.join(UPLOADS_DIR, fname));
-            if (ok) messageDoc.localFile = fname;
-        }
+function renderBotList(container) {
+  if (!botData.length) {
+    container.innerHTML = '<div class="empty"><i class="fas fa-inbox"></i><div>لا توجد رسائل</div><div style="font-size:13px;margin-top:8px;color:#475569;">عندما يرسل المستخدمون رسائل للبوت، ستظهر هنا</div></div>';
+    return;
+  }
 
-        await db.collection('bot_messages').add(messageDoc);
+  container.innerHTML = botData.map(m => {
+    const date = m.date
+      ? new Date(m.date._seconds ? m.date._seconds * 1000 : m.date).toLocaleString('ar-DZ')
+      : '—';
+    return `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="user-name">${m.displayName || 'بدون اسم'}</div>
+            <div class="user-meta">
+              <i class="fas fa-id-badge"></i> ${m.userId}
+              ${m.username ? ' • @' + m.username : ''}
+            </div>
+            <div class="user-meta" style="margin-top:4px;">
+              <i class="fas fa-clock"></i> ${date}
+            </div>
+          </div>
+          <span class="badge bot">🤖 Bot</span>
+        </div>
 
-        // إذا كانت رسالة "بداية توثيق"، سجّل الطلب
-        if (msg.text && (msg.text.includes('KYC') || msg.text.includes('توثيق') || msg.text.includes('تحقق'))) {
-            await db.collection('kyc_pending').doc(userId).set({
-                userId,
-                username,
-                displayName,
-                fullName: displayName,
-                birthDate: '',
-                frontFile: null,
-                backFile: null,
-                videoFile: null,
-                submittedAt: new Date(),
-                status: 'pending',
-                source: 'bot'
-            }, { merge: true });
+        ${m.text ? `<div class="text-content">${escapeHtml(m.text)}</div>` : ''}
 
-            await db.collection('users').doc(userId).set({
-                telegramId: userId,
-                kycStatus: 'pending',
-                kycSubmittedAt: new Date()
-            }, { merge: true });
-        }
+        ${m.mediaUrl ? `
+          <div class="media-grid">
+            <div class="media-item" onclick="showMedia('${API_BASE}${m.mediaUrl}', '${m.mediaUrl.endsWith('.mp4') ? 'video' : 'image'}')">
+              <span class="label">${m.mediaUrl.endsWith('.mp4') ? '🎥 فيديو' : '📸 صورة'}</span>
+              ${m.mediaUrl.endsWith('.mp4')
+                ? `<video src="${API_BASE}${m.mediaUrl}" preload="metadata"></video>`
+                : `<img src="${API_BASE}${m.mediaUrl}" loading="lazy" />`}
+            </div>
+          </div>
+        ` : ''}
 
-        console.log(`📩 Bot message from ${userId} (${displayName})`);
-    } catch (e) {
-        console.error('❌ Webhook error:', e);
-    }
-});
+        <div class="actions">
+          <button class="btn-approve" onclick="approve('${m.userId}', this)" style="flex:1;">
+            <i class="fas fa-check"></i> موافقة على KYC
+          </button>
+          <button class="btn-reject" onclick="openRejectModal('${m.userId}')" style="flex:1;">
+            <i class="fas fa-times"></i> رفض
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 
-// ============================================================
-// POST /kyc — من التطبيق
-// ============================================================
-app.post('/kyc',
-    upload.fields([
-        { name: 'front', maxCount: 1 },
-        { name: 'back', maxCount: 1 },
-        { name: 'video', maxCount: 1 }
-    ]),
-    async (req, res) => {
-        try {
-            const { userId, firstName, lastName, birthDate, username, displayName } = req.body;
-            const files = req.files || {};
-
-            if (!userId) return res.status(400).json({ error: 'userId مطلوب' });
-            if (!files.front || !files.back || !files.video) {
-                return res.status(400).json({ error: 'الملفات ناقصة' });
-            }
-
-            const kycData = {
-                userId,
-                firstName: firstName || '',
-                lastName: lastName || '',
-                fullName: `${firstName || ''} ${lastName || ''}`.trim(),
-                birthDate: birthDate || '',
-                username: username || '',
-                displayName: displayName || '',
-                frontFile: files.front[0].filename,
-                backFile: files.back[0].filename,
-                videoFile: files.video[0].filename,
-                submittedAt: new Date(),
-                status: 'pending',
-                source: 'app'
-            };
-
-            await db.collection('kyc_pending').doc(userId).set(kycData, { merge: true });
-            await db.collection('users').doc(userId).set({
-                telegramId: userId,
-                kycStatus: 'pending',
-                kycSubmittedAt: new Date(),
-                kycRejectionReason: null,
-                kycFullName: kycData.fullName,
-                kycBirthDate: birthDate || ''
-            }, { merge: true });
-
-            // إشعار الأدمن على Telegram
-            if (ADMIN_TELEGRAM_ID && BOT_TOKEN) {
-                await tgApi('sendMessage', {
-                    chat_id: ADMIN_TELEGRAM_ID,
-                    text: `🔔 <b>طلب KYC جديد</b>\n\n👤 ${kycData.fullName}\n🆔 <code>${userId}</code>\n📱 من التطبيق`,
-                    parse_mode: 'HTML'
-                });
-            }
-
-            console.log(`✅ KYC from app: ${userId}`);
-            res.json({ success: true });
-        } catch (e) {
-            console.error('❌ KYC error:', e);
-            res.status(500).json({ error: e.message });
-        }
-    }
-);
-
-// ============================================================
-// Admin API — Requests (KYC submissions)
-// ============================================================
-app.get('/admin/api/requests', async (req, res) => {
-    try {
-        const snapshot = await db.collection('kyc_pending')
-            .orderBy('submittedAt', 'desc')
-            .limit(200)
-            .get();
-        const list = [];
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            list.push({
-                id: doc.id,
-                userId: d.userId,
-                fullName: d.fullName,
-                birthDate: d.birthDate,
-                username: d.username,
-                displayName: d.displayName,
-                frontUrl: d.frontFile ? `/files/${d.frontFile}` : null,
-                backUrl: d.backFile ? `/files/${d.backFile}` : null,
-                videoUrl: d.videoFile ? `/files/${d.videoFile}` : null,
-                submittedAt: d.submittedAt,
-                status: d.status,
-                source: d.source || 'app'
-            });
-        });
-        res.json(list);
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
+function escapeHtml(t) {
+  return String(t).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
 
 // ============================================================
-// Admin API — Bot messages
+// Approve / Reject / Delete
 // ============================================================
-app.get('/admin/api/messages', async (req, res) => {
-    try {
-        const snapshot = await db.collection('bot_messages')
-            .orderBy('date', 'desc')
-            .limit(200)
-            .get();
-        const list = [];
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            list.push({
-                id: doc.id,
-                userId: d.userId,
-                username: d.username,
-                displayName: d.displayName,
-                text: d.text,
-                hasMedia: d.hasMedia,
-                localFile: d.localFile,
-                mediaUrl: d.localFile ? `/files/${d.localFile}` : null,
-                date: d.date,
-                source: 'bot'
-            });
-        });
-        res.json(list);
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// ============================================================
-// Approve / Reject
-// ============================================================
-app.post('/admin/api/approve/:userId', async (req, res) => {
-    const { userId } = req.params;
-    try {
-        await db.collection('users').doc(userId).set({
-            kycStatus: 'approved',
-            kycApprovedAt: new Date(),
-            kycRejectionReason: null
-        }, { merge: true });
-        await db.collection('kyc_pending').doc(userId).set(
-            { status: 'approved', reviewedAt: new Date() },
-            { merge: true }
-        );
-
-        // إشعار المستخدم
-        await tgApi('sendMessage', {
-            chat_id: userId,
-            text: '✅ <b>تمت الموافقة على طلب التحقق من هويتك</b>\n\nمرحباً بك في Crynova!',
-            parse_mode: 'HTML'
-        });
-
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.post('/admin/api/reject/:userId', async (req, res) => {
-    const { userId } = req.params;
-    const { reason } = req.body || {};
-    const finalReason = reason || 'البيانات غير صحيحة أو الصور غير واضحة';
-    try {
-        await db.collection('users').doc(userId).set({
-            kycStatus: 'rejected',
-            kycRejectedAt: new Date(),
-            kycRejectionReason: finalReason
-        }, { merge: true });
-        await db.collection('kyc_pending').doc(userId).set(
-            { status: 'rejected', reviewedAt: new Date(), rejectionReason: finalReason },
-            { merge: true }
-        );
-
-        // إشعار المستخدم
-        await tgApi('sendMessage', {
-            chat_id: userId,
-            text: `❌ <b>تم رفض طلب التحقق</b>\n\nالسبب: ${finalReason}\n\nيمكنك إعادة الإرسال.`,
-            parse_mode: 'HTML'
-        });
-
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// ============================================================
-// Delete a request
-// ============================================================
-app.post('/admin/api/delete/:userId', async (req, res) => {
-    const { userId } = req.params;
-    try {
-        await db.collection('kyc_pending').doc(userId).delete();
-        res.json({ success: true });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// ============================================================
-// Files
-// ============================================================
-app.get('/files/:name', (req, res) => {
-    const filePath = path.join(UPLOADS_DIR, req.params.name);
-    if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
-    res.sendFile(filePath);
-});
-
-// ============================================================
-// Admin HTML
-// ============================================================
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'));
-});
-
-app.get('/', (req, res) => {
-    res.json({
-        status: 'Crynova KYC Server ✅',
-        bot: BOT_TOKEN ? 'configured' : 'missing',
-        adminId: ADMIN_TELEGRAM_ID || 'missing',
-        time: new Date().toISOString()
-    });
-});
-
-// ============================================================
-// Set Webhook (auto on startup)
-// ============================================================
-async function setupWebhook() {
-    if (!BOT_TOKEN || !ADMIN_TELEGRAM_ID) return;
-    const renderUrl = process.env.RENDER_EXTERNAL_URL;
-    if (!renderUrl) {
-        console.log('⚠️  RENDER_EXTERNAL_URL not set, skipping webhook setup');
-        return;
-    }
-    const webhookUrl = `${renderUrl}/webhook/${WEBHOOK_SECRET}`;
-    const r = await tgApi('setWebhook', { url: webhookUrl, drop_pending_updates: true });
-    if (r.ok) {
-        console.log(`✅ Webhook set: ${webhookUrl}`);
+async function approve(userId, btn) {
+  if (!confirm(`تأكيد الموافقة على ${userId}؟`)) return;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+  try {
+    const res = await fetch(API_BASE + `/admin/api/approve/${userId}`, { method: 'POST' });
+    if (res.ok) {
+      alert('✅ تمت الموافقة');
+      loadAll();
     } else {
-        console.error('❌ Webhook setup failed:', r.description);
+      alert('❌ فشل');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> موافقة';
     }
+  } catch (e) {
+    alert('❌ خطأ: ' + e.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> موافقة';
+  }
+}
+
+function openRejectModal(userId) {
+  currentRejectUserId = userId;
+  document.getElementById('rejectReason').value = '';
+  document.getElementById('rejectModal').classList.add('active');
+}
+
+function closeRejectModal() {
+  document.getElementById('rejectModal').classList.remove('active');
+  currentRejectUserId = null;
+}
+
+async function confirmReject() {
+  const reason = document.getElementById('rejectReason').value.trim();
+  if (!reason) { alert('⚠️ اكتب سبب الرفض'); return; }
+  const btn = document.querySelector('#rejectModal .confirm');
+  btn.disabled = true; btn.textContent = 'جاري...';
+  try {
+    const res = await fetch(API_BASE + `/admin/api/reject/${currentRejectUserId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
+    });
+    if (res.ok) {
+      alert('✅ تم الرفض');
+      closeRejectModal();
+      loadAll();
+    } else {
+      alert('❌ فشل');
+    }
+  } catch (e) {
+    alert('❌ خطأ: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'تأكيد الرفض';
+  }
+}
+
+async function deleteRequest(userId) {
+  if (!confirm(`حذف الطلب المعلّق لـ ${userId}؟`)) return;
+  try {
+    await fetch(API_BASE + `/admin/api/delete/${userId}`, { method: 'POST' });
+    loadAll();
+  } catch (e) {
+    alert('❌ خطأ: ' + e.message);
+  }
 }
 
 // ============================================================
-// Start
+// Media preview
 // ============================================================
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-    console.log(`🚀 Server on port ${PORT}`);
-    await setupWebhook();
-});
+function showMedia(url, type) {
+  const modal = document.getElementById('imageModal');
+  const img = document.getElementById('modalImg');
+  const video = document.getElementById('modalVideo');
+  if (type === 'video') {
+    video.src = url;
+    video.style.display = 'block';
+    img.style.display = 'none';
+  } else {
+    img.src = url;
+    img.style.display = 'block';
+    video.style.display = 'none';
+    video.pause();
+  }
+  modal.classList.add('active');
+}
+
+function closeImageModal() {
+  const modal = document.getElementById('imageModal');
+  modal.classList.remove('active');
+  const video = document.getElementById('modalVideo');
+  video.pause();
+  video.src = '';
+}
+
+// ============================================================
+// Boot
+// ============================================================
+loadAll();
+refreshInterval = setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
