@@ -132,17 +132,20 @@
 </div>
 
 <script>
-// ============================================================
-// Config — TEST MODE
-// ============================================================
-const API_BASE = (window.location.protocol === 'file:')
-  ? 'https://crynova-verification.onrender.com'
-  : '';
+// ═══════════════════════════════════════════════════════════════
+// ⚠️⚠️⚠️  غيّر هذا الرابط إلى رابط خدمتك على Render  ⚠️⚠️⚠️
+// ═══════════════════════════════════════════════════════════════
+const API_BASE = 'https://crynovaverification.onrender.com';
+//                                 ↑↑↑
+//                    ضع رابط Render الفعلي هنا
+//                مثال: https://crynova-kyc.onrender.com
+//                مثال: https://my-kyc-bot.onrender.com
+// ═══════════════════════════════════════════════════════════════
 
 let currentRejectUserId = null;
 let refreshInterval = null;
 
-console.log('🌐 API_BASE:', API_BASE || '(relative)');
+console.log('🌐 API_BASE:', API_BASE);
 
 // ============================================================
 // Load requests
@@ -160,9 +163,15 @@ async function loadRequests() {
     document.getElementById('loading').innerHTML = `
       <i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i>
       <div style="color:#ef4444;font-weight:700;margin-bottom:8px;">فشل الاتصال بالخادم</div>
-      <div style="font-size:13px;color:#94a3b8;margin-top:8px;">
-        API: <code style="color:#fbbf24;">${API_BASE || window.location.origin}</code><br>
+      <div style="font-size:13px;color:#94a3b8;margin-top:8px;direction:ltr;text-align:left;">
+        API: <code style="color:#fbbf24;word-break:break-all;">${API_BASE}</code><br>
         خطأ: <code style="color:#fbbf24;">${e.message}</code>
+      </div>
+      <div style="margin-top:16px;padding:14px;background:#0f172a;border-radius:10px;text-align:right;font-size:13px;line-height:1.9;">
+        <div style="color:#94a3b8;margin-bottom:8px;">🔍 تحقق من:</div>
+        <div>1. هل رابط Render صحيح؟ افتحه مباشرة في المتصفح</div>
+        <div>2. هل خدمة Render تعمل؟ (Dashboard → Logs)</div>
+        <div>3. هل الرابط موجود في أعلى ملف admin.html؟</div>
       </div>
       <button onclick="loadRequests()" style="margin-top:16px;padding:10px 20px;border-radius:10px;
         border:none;background:#6c5ce7;color:white;font-weight:700;cursor:pointer;font-family:inherit;">
